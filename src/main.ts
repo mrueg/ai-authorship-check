@@ -1,9 +1,9 @@
 import * as core from "@actions/core";
 import * as github from "@actions/github";
 import { Classifier } from "./classifier.ts";
-import { readConfig } from "./config.ts";
+import { readConfig, type Config } from "./config.ts";
 import { skipReason, verdictFor, type Reaction, type Verdict } from "./decide.ts";
-import { extractTarget } from "./event.ts";
+import { extractTarget, type Payload, type Target } from "./event.ts";
 import { preprocess } from "./preprocess.ts";
 import { addReaction, clearReactions, syncLabel } from "./react.ts";
 import { findSignature } from "./signatures.ts";
@@ -21,7 +21,7 @@ async function run(): Promise<void> {
   const cfg = readConfig();
   const { eventName, payload, repo } = github.context;
 
-  const extracted = extractTarget(eventName, payload as Parameters<typeof extractTarget>[1]);
+  const extracted = extractTarget(eventName, payload as Payload);
   if ("skip" in extracted) {
     return finish({ verdict: "skipped", reason: extracted.skip });
   }
@@ -55,7 +55,7 @@ async function run(): Promise<void> {
   }
 }
 
-async function judge(target: Parameters<typeof skipReason>[0], cfg: ReturnType<typeof readConfig>): Promise<Result> {
+async function judge(target: Target, cfg: Config): Promise<Result> {
   const skip = skipReason(target, cfg);
   if (skip) return { verdict: "skipped", reason: skip };
 

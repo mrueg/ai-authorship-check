@@ -28,12 +28,13 @@ export class Classifier {
   static async load(modelPath: string, maxTokens: number): Promise<Classifier> {
     env.allowRemoteModels = false;
     env.allowLocalModels = true;
-    env.localModelPath = path.dirname(path.resolve(modelPath));
-    const name = path.basename(path.resolve(modelPath));
+    const dir = path.resolve(modelPath);
+    env.localModelPath = path.dirname(dir);
+    const name = path.basename(dir);
 
     const tokenizer = await AutoTokenizer.from_pretrained(name, { local_files_only: true });
     // model/export.py ships fp32 when no int8 setting is accurate enough.
-    const quantized = existsSync(path.join(path.resolve(modelPath), "onnx", "model_quantized.onnx"));
+    const quantized = existsSync(path.join(dir, "onnx", "model_quantized.onnx"));
     const model = await AutoModelForSequenceClassification.from_pretrained(name, {
       local_files_only: true,
       dtype: quantized ? "q8" : "fp32",

@@ -20,77 +20,53 @@ export async function clearReactions(
   actor: string,
   ours: ReadonlySet<string>,
 ): Promise<number> {
-  const reactions = await listReactions(octokit, repo, target);
-  const stale = reactions.filter((r) => r.user?.login === actor && ours.has(r.content));
+  const api = reactionApi(octokit, repo, target);
+  const stale = (await api.list()).filter((r) => r.user?.login === actor && ours.has(r.content));
   for (const r of stale) {
-    await deleteReaction(octokit, repo, target, r.id);
+    await api.remove(r.id);
   }
   return stale.length;
 }
 
 export async function addReaction(octokit: Octokit, repo: Repo, target: Target, content: Reaction): Promise<void> {
-  switch (target.kind) {
-    case "issue":
-    case "pull_request":
-      await octokit.rest.reactions.createForIssue({ ...repo, issue_number: target.number, content });
-      return;
-    case "issue_comment":
-      await octokit.rest.reactions.createForIssueComment({ ...repo, comment_id: target.commentId!, content });
-      return;
-    case "review_comment":
-      await octokit.rest.reactions.createForPullRequestReviewComment({
-        ...repo,
-        comment_id: target.commentId!,
-        content,
-      });
-      return;
-  }
+  await reactionApi(octokit, repo, target).create(content);
 }
 
-async function listReactions(octokit: Octokit, repo: Repo, target: Target) {
-  switch (target.kind) {
-    case "issue":
-    case "pull_request":
-      return octokit.paginate(octokit.rest.reactions.listForIssue, {
-        ...repo,
-        issue_number: target.number,
-        per_page: 100,
-      });
-    case "issue_comment":
-      return octokit.paginate(octokit.rest.reactions.listForIssueComment, {
-        ...repo,
-        comment_id: target.commentId!,
-        per_page: 100,
-      });
-    case "review_comment":
-      return octokit.paginate(octokit.rest.reactions.listForPullRequestReviewComment, {
-        ...repo,
-        comment_id: target.commentId!,
-        per_page: 100,
-      });
-  }
+interface ReactionApi {
+  create(content: Reaction): Promise<unknown>;
+  list(): Promise<{ id: number; content: string; user?: { login: string } | null }[]>;
+  remove(reactionId: number): Promise<unknown>;
 }
 
-async function deleteReaction(octokit: Octokit, repo: Repo, target: Target, reactionId: number): Promise<void> {
+/** The reaction endpoints for the target: issues and PRs share one set, each comment kind has its own. */
+function reactionApi(octokit: Octokit, repo: Repo, target: Target): ReactionApi {
+  const r = octokit.rest.reactions;
   switch (target.kind) {
     case "issue":
-    case "pull_request":
-      await octokit.rest.reactions.deleteForIssue({ ...repo, issue_number: target.number, reaction_id: reactionId });
-      return;
-    case "issue_comment":
-      await octokit.rest.reactions.deleteForIssueComment({
-        ...repo,
-        comment_id: target.commentId!,
-        reaction_id: reactionId,
-      });
-      return;
-    case "review_comment":
-      await octokit.rest.reactions.deleteForPullRequestComment({
-        ...repo,
-        comment_id: target.commentId!,
-        reaction_id: reactionId,
-      });
-      return;
+    case "pull_request": {
+      const ids = { ...repo, issue_number: target.number };
+      return {
+        create: (content) => r.createForIssue({ ...ids, content }),
+        list: () => octokit.paginate(r.listForIssue, { ...ids, per_page: 100 }),
+        remove: (reaction_id) => r.deleteForIssue({ ...ids, reaction_id }),
+      };
+    }
+    case "issue_comment": {
+      const ids = { ...repo, comment_id: target.commentId! };
+      return {
+        create: (content) => r.createForIssueComment({ ...ids, content }),
+        list: () => octokit.paginate(r.listForIssueComment, { ...ids, per_page: 100 }),
+        remove: (reaction_id) => r.deleteForIssueComment({ ...ids, reaction_id }),
+      };
+    }
+    case "review_comment": {
+      const ids = { ...repo, comment_id: target.commentId! };
+      return {
+        create: (content) => r.createForPullRequestReviewComment({ ...ids, content }),
+        list: () => octokit.paginate(r.listForPullRequestReviewComment, { ...ids, per_page: 100 }),
+        remove: (reaction_id) => r.deleteForPullRequestComment({ ...ids, reaction_id }),
+      };
+    }
   }
 }
 
