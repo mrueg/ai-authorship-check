@@ -1,0 +1,59 @@
+name: AI Authorship Check
+description: Reacts to new issues, pull requests and comments with ❤️ (likely human), 👀 (undecided) or 🚀 (likely AI-generated), using a local classifier.
+author: mrueg
+branding:
+  icon: user-check
+  color: purple
+
+inputs:
+  github-token:
+    description: Token used to add reactions and labels. Needs issues and pull-requests write access.
+    default: ${{ github.token }}
+  human-threshold:
+    description: P(AI) below this value counts as likely human.
+    default: "0.3"
+  ai-threshold:
+    description: P(AI) at or above this value counts as likely AI. Values between the two thresholds are undecided. Higher means fewer real people flagged as AI.
+    default: "0.8"
+  human-reaction:
+    description: Reaction for likely human text. One of +1, -1, laugh, confused, heart, hooray, rocket, eyes, or none.
+    default: heart
+  undecided-reaction:
+    description: Reaction when the model is undecided. One of +1, -1, laugh, confused, heart, hooray, rocket, eyes, or none.
+    default: eyes
+  ai-reaction:
+    description: Reaction for likely AI-generated text. One of +1, -1, laugh, confused, heart, hooray, rocket, eyes, or none.
+    default: rocket
+  min-length:
+    description: Skip texts shorter than this many characters after cleanup (quotes, code, templates removed).
+    default: "40"
+  max-tokens:
+    description: Classify at most this many tokens; longer texts are truncated.
+    default: "2048"
+  skip-associations:
+    description: Comma-separated author associations that are never judged (OWNER, MEMBER, COLLABORATOR, CONTRIBUTOR, FIRST_TIME_CONTRIBUTOR, NONE).
+    default: OWNER,MEMBER
+  signature-check:
+    description: Treat the text as likely AI without running the model when it carries an explicit AI-tool signature ("Generated with Claude Code", AI Co-Authored-By trailers, ...).
+    default: "true"
+  add-label:
+    description: Also add a label to issues and pull requests judged as AI (removed again if an edit flips the verdict).
+    default: "false"
+  label-name:
+    description: Label used when add-label is true.
+    default: possibly-ai-generated
+  dry-run:
+    description: Classify and set outputs, but do not react or label.
+    default: "false"
+
+outputs:
+  verdict:
+    description: human, undecided, ai or skipped
+  p-ai:
+    description: Model probability that the text is AI-generated (1 for signature matches, empty when skipped)
+  reason:
+    description: Why this verdict was reached
+
+runs:
+  using: docker
+  image: docker://ghcr.io/mrueg/ai-authorship-check:v0.1.0

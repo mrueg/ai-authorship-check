@@ -1,0 +1,11 @@
+{
+  "action": "created",
+  "issue": { "number": 1 },
+  "comment": {
+    "id": 102,
+    "body": "Coverage decreased by 0.3% on this pull request compared to the base branch.",
+    "user": { "login": "codecov[bot]", "type": "Bot" },
+    "author_association": "NONE"
+  },
+  "repository": { "name": "repo", "owner": { "login": "owner" } }
+}

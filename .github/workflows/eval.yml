@@ -1,0 +1,104 @@
+name: Eval
+
+# Builds the action image with the real model, rebuilds the eval corpus from
+# GH Archive (see corpus/README.md) and scores it. Results go to the job summary;
+# per-item scores are uploaded as an artifact.
+on:
+  workflow_dispatch:
+    inputs:
+      split:
+        description: Corpus split to score (tune thresholds on dev, report on test)
+        type: choice
+        options: [dev, test, all]
+        default: dev
+      human-threshold:
+        description: human-threshold for the per-slice table
+        default: "0.3"
+      ai-threshold:
+        description: ai-threshold for the per-slice table
+        default: "0.8"
+
+permissions:
+  contents: read
+
+jobs:
+  eval:
+    runs-on: ubuntu-latest # 16 GB RAM: enough to export ModernBERT-large
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci --ignore-scripts
+
+      - name: Cache GH Archive downloads
+        uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25 # v5.1.0
+        with:
+          path: corpus/.cache
+          key: gharchive-${{ hashFiles('corpus/collect.ts') }}
+          restore-keys: gharchive-
+
+      - name: Build corpus
+        run: |
+          mkdir -p corpus/data
+          node corpus/collect.ts human   > corpus/data/human.jsonl
+          node corpus/collect.ts wild-ai > corpus/data/wild-ai.jsonl
+          node corpus/build.ts | tee corpus/data/summary.txt
+
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      - name: Build image with the real model
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          load: true
+          tags: ai-authorship-check:eval
+          cache-from: type=gha,scope=eval-image
+          cache-to: type=gha,scope=eval-image,mode=max
+
+      - name: Score corpus
+        env:
+          SPLIT: ${{ inputs.split }}
+          HUMAN_T: ${{ inputs.human-threshold }}
+          AI_T: ${{ inputs.ai-threshold }}
+        run: |
+          split_arg=()
+          if [ "$SPLIT" != all ]; then split_arg=(--split "$SPLIT"); fi
+          docker run --rm -v "$PWD/corpus/data:/data" --entrypoint node ai-authorship-check:eval \
+            /app/dist/eval.js /data/corpus.jsonl "${split_arg[@]}" \
+            --human-threshold "$HUMAN_T" --ai-threshold "$AI_T" \
+            --scores /data/scores.jsonl | tee corpus/data/eval.txt
+          docker run --rm --entrypoint cat ai-authorship-check:eval /model/MODEL_INFO.json > corpus/data/model-info.json
+
+      - name: Write summary
+        if: always()
+        env:
+          SPLIT: ${{ inputs.split }}
+        run: |
+          {
+            echo "## Eval: split \`$SPLIT\`"
+            echo '```'
+            cat corpus/data/eval.txt 2>/dev/null || echo "(no results)"
+            echo '```'
+            echo "### Corpus"
+            echo '```'
+            cat corpus/data/summary.txt 2>/dev/null
+            echo '```'
+            echo "### Model"
+            echo '```json'
+            cat corpus/data/model-info.json 2>/dev/null
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      # Contains other people's GitHub text: keep it short-lived and inside the repo.
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: eval-${{ inputs.split }}
+          path: |
+            corpus/data/eval.txt
+            corpus/data/scores.jsonl
+            corpus/data/model-info.json
+          retention-days: 14
+          if-no-files-found: ignore

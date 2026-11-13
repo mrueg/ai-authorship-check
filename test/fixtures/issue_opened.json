@@ -1,0 +1,10 @@
+{
+  "action": "opened",
+  "issue": {
+    "number": 1,
+    "body": "<!-- Describe the bug -->\nWhen I run `tool build --watch` on Linux the process exits after the first rebuild instead of watching. Works fine on 2.3.0, broke after upgrading to 2.4.1.\n\n```\nError: ENOSPC: System limit for number of file watchers reached\n```",
+    "user": { "login": "octocat", "type": "User" },
+    "author_association": "NONE"
+  },
+  "repository": { "name": "repo", "owner": { "login": "owner" } }
+}

@@ -1,0 +1,11 @@
+{
+  "action": "created",
+  "issue": { "number": 1 },
+  "comment": {
+    "id": 101,
+    "body": "I've updated the configuration loader to handle missing files gracefully.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)",
+    "user": { "login": "someone", "type": "User" },
+    "author_association": "CONTRIBUTOR"
+  },
+  "repository": { "name": "repo", "owner": { "login": "owner" } }
+}
