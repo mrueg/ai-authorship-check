@@ -6,8 +6,8 @@ laid out for transformers.js, and check it against the PyTorch original.
 
 Output:
     <out>/config.json, tokenizer.json, tokenizer_config.json, special_tokens_map.json
-    <out>/onnx/model_quantized.onnx
-    <out>/MODEL_INFO.json   (source repo, revision, sha256, export check results)
+    <out>/onnx/model_quantized.onnx   (or onnx/model.onnx if no int8 setting is accurate enough)
+    <out>/MODEL_INFO.json   (source repo, revision, quantization, sha256, export check results)
 
 --tiny swaps the weights for a 2-layer random model with the same tokenizer,
 so the full pipeline can be smoke-tested in a minute without the 1.6 GB download.
@@ -18,11 +18,13 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import re
 import shutil
 import sys
 from pathlib import Path
 
 import numpy as np
+import onnx
 import onnxruntime as ort
 import torch
 from huggingface_hub import snapshot_download
@@ -43,7 +45,7 @@ CHECK_TEXTS = [
 ]
 
 # int8 dynamic quantization shifts scores a little; larger drift means the
-# quantized model would change verdicts and must not ship.
+# quantized model would change verdicts and is not shipped.
 MAX_INT8_DRIFT = 0.10
 MAX_FP32_DRIFT = 1e-3
 
@@ -137,38 +139,61 @@ def main() -> None:
         dynamo=False,
     )
 
-    q8 = out / "onnx" / "model_quantized.onnx"
-    print("quantizing to int8 ...", flush=True)
-    quantize_dynamic(str(fp32), str(q8), weight_type=QuantType.QInt8)
-
     ref = torch_probs(model, tokenizer, CHECK_TEXTS)
     p32 = onnx_probs(fp32, tokenizer, CHECK_TEXTS)
-    p8 = onnx_probs(q8, tokenizer, CHECK_TEXTS)
     fp32_drift = float(np.abs(p32 - ref).max())
-    int8_drift = float(np.abs(p8 - ref).max())
-    print("P(AI)  torch    onnx-fp32  onnx-int8  text")
-    for t, a, b, c in zip(CHECK_TEXTS, ref, p32, p8):
-        print(f"       {a:.4f}   {b:.4f}     {c:.4f}     {t[:60]}")
-    print(f"max drift: fp32 {fp32_drift:.2e}, int8 {int8_drift:.4f}")
+    print(f"fp32 ONNX drift vs PyTorch: {fp32_drift:.2e}")
+    if fp32_drift > MAX_FP32_DRIFT:
+        sys.exit(f"ONNX export does not match PyTorch (drift {fp32_drift:.2e} > {MAX_FP32_DRIFT})")
 
-    fp32.unlink()  # only the quantized model ships
+    # Try int8 settings from smallest to most conservative; ship the first whose
+    # scores stay within MAX_INT8_DRIFT of PyTorch, else ship fp32.
+    matmuls = [n.name for n in onnx.load(str(fp32), load_external_data=False).graph.node if n.op_type == "MatMul"]
+    head = [n for n in matmuls if re.search(r"head|classifier", n)]
+    attention = [n for n in matmuls if re.search(r"attn|attention", n, re.I)]
+    attempts = [
+        ("all", dict()),
+        ("matmul-per-channel", dict(op_types_to_quantize=["MatMul"], per_channel=True, nodes_to_exclude=head)),
+        ("mlp-only-per-channel", dict(op_types_to_quantize=["MatMul"], per_channel=True,
+                                      nodes_to_exclude=head + attention)),
+    ]
+    q8 = out / "onnx" / "model_quantized.onnx"
+    chosen, drifts, scores = None, {}, {"torch": ref.round(4).tolist()}
+    for name, opts in attempts:
+        quantize_dynamic(str(fp32), str(q8), weight_type=QuantType.QInt8, **opts)
+        p8 = onnx_probs(q8, tokenizer, CHECK_TEXTS)
+        drifts[name] = float(np.abs(p8 - ref).max())
+        scores[name] = p8.round(4).tolist()
+        print(f"int8 '{name}': drift {drifts[name]:.4f}, {q8.stat().st_size / 1e6:.0f} MB", flush=True)
+        if drifts[name] <= MAX_INT8_DRIFT:
+            chosen = name
+            break
+        q8.unlink()
+
+    print("P(AI)  " + "  ".join(f"{k[:18]:>18}" for k in scores) + "  text")
+    for i, t in enumerate(CHECK_TEXTS):
+        print("       " + "  ".join(f"{v[i]:>18.4f}" for v in scores.values()) + f"  {t[:50]}")
+
+    if chosen:
+        fp32.unlink()  # only the quantized model ships
+        shipped, dtype = q8, "q8"
+    else:
+        print(f"no int8 setting stays within {MAX_INT8_DRIFT}; shipping fp32", flush=True)
+        shipped, dtype = fp32, "fp32"
+
     info = {
         "repo": args.repo,
         "revision": args.revision,
         "tiny": args.tiny,
-        "file": "onnx/model_quantized.onnx",
-        "sha256": sha256(q8),
-        "bytes": q8.stat().st_size,
-        "check": {"max_fp32_drift": fp32_drift, "max_int8_drift": int8_drift,
-                  "torch": ref.round(4).tolist(), "int8": p8.round(4).tolist()},
+        "file": str(shipped.relative_to(out)),
+        "dtype": dtype,
+        "quantization": chosen,
+        "sha256": sha256(shipped),
+        "bytes": shipped.stat().st_size,
+        "check": {"max_fp32_drift": fp32_drift, "max_int8_drift": drifts, "scores": scores},
     }
     (out / "MODEL_INFO.json").write_text(json.dumps(info, indent=2) + "\n")
-    print(json.dumps({k: info[k] for k in ("sha256", "bytes")}))
-
-    if fp32_drift > MAX_FP32_DRIFT:
-        sys.exit(f"ONNX export does not match PyTorch (drift {fp32_drift:.2e} > {MAX_FP32_DRIFT})")
-    if int8_drift > MAX_INT8_DRIFT:
-        sys.exit(f"int8 model drifts too far from PyTorch ({int8_drift:.4f} > {MAX_INT8_DRIFT})")
+    print(json.dumps({k: info[k] for k in ("file", "quantization", "sha256", "bytes")}))
 
 
 if __name__ == "__main__":
