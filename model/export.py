@@ -45,6 +45,19 @@ CHECK_TEXTS = [
     "and overall developer experience of the configuration loading module.",
 ]
 
+# ModernBERT mixes global attention with 128-token sliding-window (local) attention, and
+# all texts above are far shorter than that window. One text of ~500 tokens makes the
+# drift check cover the sliding-window masking the action relies on for long inputs.
+LONG_TEXT = " ".join([
+    "When I run the build in watch mode on Linux, the process exits after the first rebuild",
+    "instead of watching. It worked on 2.3.0 and broke after upgrading to 2.4.1.",
+    "I tried raising the inotify limit, clearing the cache and reinstalling, but nothing changed.",
+    "This change refactors the loader so that configuration files are discovered once, validated",
+    "against the schema, and cached for the lifetime of the process, which removes the repeated",
+    "disk reads that showed up in the profile.",
+] * 5)
+CHECK_TEXTS.append(LONG_TEXT)
+
 # int8 dynamic quantization shifts scores a little; larger drift means the
 # quantized model would change verdicts and is not shipped.
 MAX_INT8_DRIFT = 0.10
@@ -126,7 +139,10 @@ def main() -> None:
         shutil.copy(src / name, out / name)
 
     fp32 = out / "onnx" / "model.onnx"
-    sample = tokenizer(CHECK_TEXTS[0], return_tensors="pt")
+    # Trace with the long text so sequence-length-dependent paths (sliding-window masks) are
+    # traced for long inputs; the drift check below covers short ones too.
+    sample = tokenizer(LONG_TEXT, return_tensors="pt")
+    print(f"check texts: {[len(tokenizer(t)['input_ids']) for t in CHECK_TEXTS]} tokens", flush=True)
     print(f"exporting {args.repo}@{args.revision[:12]}{' (tiny)' if args.tiny else ''} ...", flush=True)
     torch.onnx.export(
         model,

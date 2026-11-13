@@ -48,20 +48,27 @@ jobs:
           tags: |
             type=raw,value=${{ inputs.version }}
             type=sha
-      - id: build
-        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+      # Build into the local daemon and smoke-test before pushing: a failed test must not
+      # leave a published version behind (the check above would then block re-publishing it).
+      - uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
         with:
           context: .
-          push: true
+          load: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-      - name: Smoke test the published image
-        env:
-          DIGEST: ${{ steps.build.outputs.digest }}
-        run: ./scripts/smoke.sh "$IMAGE@$DIGEST"
+      - name: Smoke test the image
+        run: ./scripts/smoke.sh "$IMAGE:$VERSION"
+      - id: push
+        name: Push
+        run: |
+          docker push --all-tags "$IMAGE" | tee push.log
+          # "vX.Y.Z: digest: sha256:… size: …" for the version tag.
+          digest="$(grep -E "^$VERSION: digest: sha256:[0-9a-f]{64}" push.log | grep -oE 'sha256:[0-9a-f]{64}')"
+          if [ -z "$digest" ]; then echo "::error::no digest for $IMAGE:$VERSION in the push output"; exit 1; fi
+          echo "digest=$digest" >> "$GITHUB_OUTPUT"
       - name: Summary
         env:
-          DIGEST: ${{ steps.build.outputs.digest }}
+          DIGEST: ${{ steps.push.outputs.digest }}
         run: |
           {
             echo "### Published \`$IMAGE:$VERSION\`"

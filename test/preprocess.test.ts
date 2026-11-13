@@ -15,8 +15,24 @@ describe("preprocess", () => {
     expect(preprocess("Before\n```\nunterminated\nstill code")).toBe("Before");
   });
 
+  it("follows CommonMark fence rules", () => {
+    // A longer fence wraps a shorter one; only a fence at least as long closes it.
+    expect(preprocess("````\n```\ninner code\n```\n````\nAfter")).toBe("After");
+    // A fence line with an info string doesn't close a block.
+    expect(preprocess("```\nfoo\n```python\nstill code\n```\nAfter")).toBe("After");
+    // Tildes don't close a backtick block.
+    expect(preprocess("```\ncode\n~~~\nmore code\n```\nAfter")).toBe("After");
+    // ``` x ``` on one line is inline code, not a fence.
+    expect(preprocess("``` x ``` is inline\nand more")).toBe("``` x ``` is inline\nand more");
+  });
+
   it("removes quoted replies", () => {
     expect(preprocess("> you said this\n> and this\nI disagree.")).toBe("I disagree.");
+  });
+
+  it("removes <details> blocks with attributes", () => {
+    expect(preprocess("See logs:\n<details open>\nboom\n</details>\nThanks")).toBe("See logs:\n\nThanks");
+    expect(preprocess("<details class=\"log\"><summary>x</summary>boom</details>Thanks")).toBe("Thanks");
   });
 
   it("removes <details> blocks", () => {

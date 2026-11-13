@@ -26,18 +26,22 @@ on:
   issues:              { types: [opened, edited] }
   issue_comment:       { types: [created, edited] }
   pull_request_target: { types: [opened, edited] }
-  # pull_request_review_comment: { types: [created, edited] }
+  # pull_request_review_comment: { types: [created, edited] }   # read-only token on fork PRs, see below
 
 permissions:
   issues: write
   pull-requests: write
 
+# A newer event for the same text cancels the older run. An edit that doesn't touch the body
+# (title, labels, base branch) gets its own group, so it can't cancel the run still judging
+# the text; the job's `if` then skips it without pulling the image.
 concurrency:
-  group: ai-authorship-check-${{ github.event.comment.id || github.event.issue.number || github.event.pull_request.number }}
+  group: ai-authorship-check-${{ github.event.action == 'edited' && !github.event.changes.body && format('edit-{0}', github.run_id) || github.event.comment.id || github.event.issue.number || github.event.pull_request.number }}
   cancel-in-progress: true
 
 jobs:
   ai-authorship-check:
+    if: github.event.action != 'edited' || github.event.changes.body
     runs-on: ubuntu-latest
     steps:
       - uses: mrueg/ai-authorship-check@v0.1.0
@@ -48,6 +52,10 @@ jobs:
 `pull_request_target` is used so PRs from forks get a token that can add reactions. This is
 safe here because the action **never checks out or runs PR code** — it only reads the event
 payload. Don't add a checkout step to this workflow.
+
+Review comments (`pull_request_review_comment`) have no `_target` variant, so on PRs from
+forks the token is read-only: the verdict still appears in the job summary and outputs, but
+the reaction can't be added (a warning, or a failed job with `fail-on-error: true`).
 
 The action runs as the container image `ghcr.io/mrueg/ai-authorship-check`. If you publish
 your own copy to a private package, log in to GHCR before the action step and grant
