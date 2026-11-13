@@ -20,7 +20,7 @@ RUN python export.py --repo "$MODEL_REPO" --revision "$MODEL_REVISION" --out /mo
       $( [ "$MODEL_TINY" = "true" ] && echo --tiny )
 
 # --- 2. Build the action ----------------------------------------------------
-FROM node:24-bookworm-slim AS build
+FROM node:25-bookworm-slim AS build
 WORKDIR /app
 COPY package.json package-lock.json ./
 # onnxruntime-node's install script only fetches optional CUDA binaries.
@@ -38,7 +38,7 @@ RUN npm run build \
  && rm -f node_modules/onnxruntime-node/bin/napi-v6/linux/*/libonnxruntime_providers_*
 
 # --- 3. Runtime ---------------------------------------------------------------
-FROM node:24-bookworm-slim
+FROM node:25-bookworm-slim
 ENV NODE_ENV=production \
     AI_AUTHORSHIP_CHECK_MODEL_PATH=/model
 COPY --from=build /app/package.json /app/package.json
