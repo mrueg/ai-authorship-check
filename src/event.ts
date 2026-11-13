@@ -30,7 +30,7 @@ interface Authored {
   author_association?: string;
 }
 
-interface Payload {
+export interface Payload {
   action?: string;
   changes?: { body?: unknown };
   issue?: Authored & { number: number };
