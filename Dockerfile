@@ -8,7 +8,7 @@ ARG MODEL_REVISION=823061be63b90f2b42f64ac1e1f82772e872533b
 ARG MODEL_TINY=false
 
 # --- 1. Export the model to int8 ONNX and verify it against PyTorch ---------
-FROM python:3.12-slim-bookworm AS export
+FROM python:3.15-slim-bookworm AS export
 WORKDIR /work
 COPY model/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
