@@ -10,7 +10,7 @@
  * Several tool names are also first names (Claude, Devin, Jules) or ordinary
  * words (cursor, amp), so a tool name alone is never enough.
  */
-import { normalizeNewlines, stripFencedCode, stripQuotes } from "./preprocess.ts";
+import { normalizeNewlines, stripFencedCode, stripInvisible, stripQuotes } from "./preprocess.ts";
 
 const TOOLS = [
   "claude code",
@@ -103,7 +103,7 @@ export const SIGNATURES: SignaturePattern[] = [
 
 /** The part of the body that counts as the author's: no quotes, fenced or inline code. */
 export function signatureText(rawBody: string): string {
-  return stripQuotes(stripFencedCode(normalizeNewlines(rawBody))).replace(/`[^`\n]*`/g, "");
+  return stripQuotes(stripFencedCode(stripInvisible(normalizeNewlines(rawBody)))).replace(/`[^`\n]*`/g, "");
 }
 
 export function findSignature(rawBody: string): SignaturePattern | undefined {

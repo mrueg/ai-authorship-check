@@ -2,6 +2,9 @@ import { describe, expect, it } from "vitest";
 import { preprocess } from "../src/preprocess.ts";
 
 describe("preprocess", () => {
+  it("removes zero-width characters, soft hyphens and bidi controls", () => {
+    expect(preprocess("Hel\u200Blo wo\u00ADrld\u200D \u202Eok\u202C\uFEFF")).toBe("Hello world ok");
+  });
   it("removes HTML comments from templates", () => {
     expect(preprocess("<!-- Please describe the bug -->\nIt crashes on start.")).toBe("It crashes on start.");
   });

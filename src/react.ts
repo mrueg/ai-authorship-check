@@ -10,8 +10,8 @@ export interface Repo {
 }
 
 /**
- * Removes verdict reactions previously left by `actor` on the target, so an
- * edited comment ends up with exactly one verdict.
+ * Removes verdict reactions previously left by `actor` on the target, except
+ * `keep` (the one just added), so an edited comment ends up with one verdict.
  */
 export async function clearReactions(
   octokit: Octokit,
@@ -19,21 +19,34 @@ export async function clearReactions(
   target: Target,
   actor: string,
   ours: ReadonlySet<string>,
+  keep?: Reaction,
 ): Promise<number> {
   const api = reactionApi(octokit, repo, target);
-  const stale = (await api.list()).filter((r) => r.user?.login === actor && ours.has(r.content));
+  const stale = (await api.list()).filter(
+    (r) => r.user?.login === actor && ours.has(r.content) && r.content !== keep,
+  );
   for (const r of stale) {
     await api.remove(r.id);
   }
   return stale.length;
 }
 
-export async function addReaction(octokit: Octokit, repo: Repo, target: Target, content: Reaction): Promise<void> {
-  await reactionApi(octokit, repo, target).create(content);
+/**
+ * Adds the reaction (GitHub returns the existing one if it is already there) and
+ * returns the login it was added as, which depends on the token.
+ */
+export async function addReaction(
+  octokit: Octokit,
+  repo: Repo,
+  target: Target,
+  content: Reaction,
+): Promise<string | undefined> {
+  const res = await reactionApi(octokit, repo, target).create(content);
+  return res.data?.user?.login;
 }
 
 interface ReactionApi {
-  create(content: Reaction): Promise<unknown>;
+  create(content: Reaction): Promise<{ data?: { user?: { login: string } | null } }>;
   list(): Promise<{ id: number; content: string; user?: { login: string } | null }[]>;
   remove(reactionId: number): Promise<unknown>;
 }

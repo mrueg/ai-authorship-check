@@ -2,6 +2,7 @@
  * Measures the classifier on a labeled JSONL file to pick the two thresholds.
  *
  *   node dist/eval.js <data.jsonl> [--split dev|test] [--model <path>] [--scores <out.jsonl>]
+ *                     [--long-text truncate|chunks] [--max-tokens 2048]
  *
  * Each line: {"text": "...", "label": "human" | "ai"}, optionally with the
  * corpus fields split, origin, kind, style and generator (see corpus/).
@@ -10,10 +11,13 @@
  * Reports AUROC, then one table per threshold:
  *   ai-threshold:    precision/recall of 🚀 and the share of real people who would get 🚀
  *   human-threshold: precision/recall of ❤️ and the share of AI texts that would get ❤️
+ * and verdict shares by slice, including text length in tokens (run once with
+ * each --long-text to see whether chunking helps long texts).
  */
 import { readFileSync, writeFileSync } from "node:fs";
 import { parseArgs } from "node:util";
 import { Classifier } from "./classifier.ts";
+import { parseLongText } from "./config.ts";
 import { preprocess } from "./preprocess.ts";
 
 interface Row {
@@ -25,6 +29,16 @@ interface Row {
   kind?: string;
   style?: string;
   generator?: string;
+  /** Token-count bucket, filled in by the eval. */
+  length?: string;
+}
+
+/** Token-count bucket for the by-length table; 2048 is the default max-tokens. */
+export function lengthBucket(tokens: number): string {
+  if (tokens < 128) return "a <128";
+  if (tokens < 512) return "b 128-511";
+  if (tokens < 2048) return "c 512-2047";
+  return "d >=2048";
 }
 
 export interface Scored {
@@ -98,6 +112,8 @@ async function main(): Promise<void> {
       scores: { type: "string" },
       "human-threshold": { type: "string", default: "0.3" },
       "ai-threshold": { type: "string", default: "0.8" },
+      "long-text": { type: "string", default: "truncate" },
+      "max-tokens": { type: "string", default: "2048" },
     },
   });
   const file = positionals[0];
@@ -109,11 +125,14 @@ async function main(): Promise<void> {
     .map((l) => JSON.parse(l) as Row)
     .filter((r) => !values.split || r.split === values.split);
 
-  const classifier = await Classifier.load(values.model!, 2048);
+  const longText = parseLongText(values["long-text"]!);
+  const classifier = await Classifier.load(values.model!, Number(values["max-tokens"]));
   const scored: Scored[] = [];
   const started = Date.now();
   for (const [i, row] of rows.entries()) {
-    scored.push({ pAi: await classifier.classify(preprocess(row.text)), ai: row.label === "ai" });
+    const score = await classifier.classify(preprocess(row.text), longText);
+    row.length = lengthBucket(score.tokens);
+    scored.push({ pAi: score.pAi, ai: row.label === "ai" });
     if ((i + 1) % 100 === 0) process.stderr.write(`${i + 1}/${rows.length}\n`);
   }
   await classifier.dispose();
@@ -122,7 +141,7 @@ async function main(): Promise<void> {
   }
 
   const ms = (Date.now() - started) / rows.length;
-  console.log(`${rows.length} rows, ${ms.toFixed(0)} ms/row, AUROC ${auroc(scored).toFixed(4)}\n`);
+  console.log(`${rows.length} rows, long-text ${longText}, ${ms.toFixed(0)} ms/row, AUROC ${auroc(scored).toFixed(4)}\n`);
   console.log("ai-threshold (🚀 when P(AI) >= t)");
   console.log("threshold  precision  recall  human-FPR    tp    fp    fn    tn");
   for (const t of [0.5, 0.6, 0.7, 0.8, 0.85, 0.9, 0.95, 0.99]) {
@@ -142,7 +161,7 @@ async function main(): Promise<void> {
   }
 
   const humanT = Number(values["human-threshold"]), aiT = Number(values["ai-threshold"]);
-  for (const key of ["origin", "kind", "style", "generator"] as const) {
+  for (const key of ["origin", "kind", "style", "generator", "length"] as const) {
     if (!rows.some((r) => r[key])) continue;
     console.log(`\nby ${key} (thresholds ${humanT} / ${aiT})`);
     console.log(`${"label/" + key}`.padEnd(36) + "      n   mean     ❤️      👀      🚀");

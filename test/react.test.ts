@@ -10,7 +10,7 @@ const comment: Target = { ...issue, kind: "issue_comment", commentId: 99 };
 const review: Target = { ...issue, kind: "review_comment", commentId: 55 };
 
 function fakeOctokit(existing: { id: number; content: string; user: { login: string } }[] = []) {
-  const fn = () => vi.fn().mockResolvedValue({});
+  const fn = () => vi.fn().mockResolvedValue({ data: { user: { login: "github-actions[bot]" } } });
   const rest = {
     reactions: {
       createForIssue: fn(), createForIssueComment: fn(), createForPullRequestReviewComment: fn(),
