@@ -1,61 +1,38 @@
-name: Self-test
-
-# Runs the action from this branch's own code on this repo's pull requests, as
-# a live test. Builds the image (Docker layers cached, so the model export only
-# runs when model/ changes) and starts it the way the Actions runner starts a
-# container action.
-#
-# Uses `pull_request`, not `pull_request_target`: it builds and runs the PR's
-# code, so it must not get secrets or a write token on fork PRs. On fork PRs
-# the reaction step fails for lack of permission, which is fine.
+# The README's usage example, run on this repository with its own action (`./`),
+# so every issue, pull request and comment here is a live test of main.
+name: AI Authorship Check
 on:
-  pull_request:
-    types: [opened, edited]
+  issues:              { types: [opened, edited] }
+  issue_comment:       { types: [created, edited] }
+  pull_request_target: { types: [opened, edited] }
 
 permissions:
-  contents: read
-  pull-requests: write
   issues: write
+  pull-requests: write
+  contents: read
+  packages: read # pull the action image while the package is private
 
 concurrency:
-  group: self-test-${{ github.event.pull_request.number }}
+  group: ai-authorship-check-${{ github.event.comment.id || github.event.issue.number || github.event.pull_request.number }}
   cancel-in-progress: true
 
 jobs:
-  self-test:
-    runs-on: ubuntu-latest # 16 GB RAM: enough to export ModernBERT-large on a cache miss
-    timeout-minutes: 60
+  ai-authorship-check:
+    runs-on: ubuntu-latest
     steps:
+      # Checks out main, never the PR's code: pull_request_target and the issue
+      # events always run on the default branch.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
-      - uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
         with:
-          context: .
-          load: true
-          tags: ai-authorship-check:self-test
-          cache-from: type=gha,scope=action-image
-          cache-to: type=gha,scope=action-image,mode=max
+          persist-credentials: false
 
-      - name: Run the action
+      # Only needed while the repository (and so its image) is private.
+      - name: Log in to GHCR
         env:
-          INPUT_GITHUB-TOKEN: ${{ github.token }}
-        run: |
-          out="$RUNNER_TEMP/action"
-          mkdir -p "$out" && : > "$out/output" && : > "$out/summary"
-          # Same inputs as action.yml's defaults, except: judge everyone (the repo
-          # owner opens most PRs here).
-          docker run --rm \
-            -v "$GITHUB_EVENT_PATH:/github/event.json:ro" -v "$out:/github/out" \
-            -e GITHUB_EVENT_NAME -e GITHUB_REPOSITORY -e GITHUB_API_URL -e GITHUB_SERVER_URL -e GITHUB_GRAPHQL_URL \
-            -e GITHUB_EVENT_PATH=/github/event.json \
-            -e GITHUB_OUTPUT=/github/out/output -e GITHUB_STEP_SUMMARY=/github/out/summary \
-            -e INPUT_GITHUB-TOKEN \
-            -e INPUT_HUMAN-THRESHOLD=0.3 -e INPUT_AI-THRESHOLD=0.8 \
-            -e INPUT_HUMAN-REACTION=heart -e INPUT_UNDECIDED-REACTION=eyes -e INPUT_AI-REACTION=rocket \
-            -e INPUT_MIN-LENGTH=40 -e INPUT_MAX-TOKENS=2048 \
-            -e INPUT_SKIP-ASSOCIATIONS= \
-            -e INPUT_SIGNATURE-CHECK=true \
-            -e INPUT_ADD-LABEL=false -e INPUT_LABEL-NAME=possibly-ai-generated \
-            -e INPUT_DRY-RUN=false \
-            ai-authorship-check:self-test
-          cat "$out/summary" >> "$GITHUB_STEP_SUMMARY"
+          TOKEN: ${{ github.token }}
+          ACTOR: ${{ github.actor }}
+        run: echo "$TOKEN" | docker login ghcr.io -u "$ACTOR" --password-stdin
+
+      - uses: ./
+        with:
+          skip-associations: "" # judge everyone; the repo owner opens most PRs here
