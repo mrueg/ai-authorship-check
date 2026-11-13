@@ -17,6 +17,11 @@ on:
       ai-threshold:
         description: ai-threshold for the per-slice table
         default: "0.8"
+      long-text:
+        description: How texts longer than 2048 tokens are scored (compare the "by length" table)
+        type: choice
+        options: [truncate, chunks]
+        default: truncate
 
 permissions:
   contents: read
@@ -62,12 +67,13 @@ jobs:
           SPLIT: ${{ inputs.split }}
           HUMAN_T: ${{ inputs.human-threshold }}
           AI_T: ${{ inputs.ai-threshold }}
+          LONG_TEXT: ${{ inputs.long-text }}
         run: |
           split_arg=()
           if [ "$SPLIT" != all ]; then split_arg=(--split "$SPLIT"); fi
           docker run --rm -v "$PWD/corpus/data:/data" --entrypoint node ai-authorship-check:eval \
             /app/dist/eval.js /data/corpus.jsonl "${split_arg[@]}" \
-            --human-threshold "$HUMAN_T" --ai-threshold "$AI_T" \
+            --human-threshold "$HUMAN_T" --ai-threshold "$AI_T" --long-text "$LONG_TEXT" \
             --scores /data/scores.jsonl | tee corpus/data/eval.txt
           docker run --rm --entrypoint cat ai-authorship-check:eval /model/MODEL_INFO.json > corpus/data/model-info.json
 
@@ -95,7 +101,7 @@ jobs:
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()
         with:
-          name: eval-${{ inputs.split }}
+          name: eval-${{ inputs.split }}-${{ inputs.long-text }}
           path: |
             corpus/data/eval.txt
             corpus/data/scores.jsonl

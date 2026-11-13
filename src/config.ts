@@ -1,4 +1,5 @@
 import * as core from "@actions/core";
+import { type LongText } from "./chunks.ts";
 import { REACTIONS, type Reaction, type Verdict } from "./decide.ts";
 
 export interface Config {
@@ -9,11 +10,14 @@ export interface Config {
   reactions: Record<Verdict, Reaction | undefined>;
   minLength: number;
   maxTokens: number;
+  longText: LongText;
   skipAssociations: Set<string>;
   signatureCheck: boolean;
   addLabel: boolean;
   labelName: string;
   dryRun: boolean;
+  /** Fail the job when a reaction or label call fails, instead of warning. */
+  failOnError: boolean;
   modelPath: string;
 }
 
@@ -34,6 +38,7 @@ export function readConfig(): Config {
     },
     minLength: number("min-length", 0, Infinity),
     maxTokens: number("max-tokens", 16, 8192),
+    longText: parseLongText(core.getInput("long-text")),
     skipAssociations: new Set(
       core
         .getInput("skip-associations")
@@ -45,6 +50,7 @@ export function readConfig(): Config {
     addLabel: core.getBooleanInput("add-label"),
     labelName: core.getInput("label-name") || "possibly-ai-generated",
     dryRun: core.getBooleanInput("dry-run"),
+    failOnError: core.getBooleanInput("fail-on-error"),
     modelPath: process.env.AI_AUTHORSHIP_CHECK_MODEL_PATH ?? "/model",
   };
 }
@@ -67,4 +73,10 @@ export function parseReaction(name: string, raw: string): Reaction | undefined {
 
 function reaction(name: string): Reaction | undefined {
   return parseReaction(name, core.getInput(name));
+}
+
+export function parseLongText(raw: string): LongText {
+  const value = raw.trim().toLowerCase() || "truncate";
+  if (value === "truncate" || value === "chunks") return value;
+  throw new Error(`Input "long-text" must be truncate or chunks, got "${raw}"`);
 }

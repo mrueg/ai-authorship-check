@@ -28,8 +28,11 @@ inputs:
     description: Skip texts shorter than this many characters after cleanup (quotes, code, templates removed).
     default: "40"
   max-tokens:
-    description: Classify at most this many tokens; longer texts are truncated.
+    description: Tokens per model input. Longer texts are truncated, or split into chunks of this size when long-text is chunks.
     default: "2048"
+  long-text:
+    description: How to handle texts longer than max-tokens. truncate reads only the beginning; chunks scores up to 4 chunks and averages them (slower on long texts).
+    default: truncate
   skip-associations:
     description: Comma-separated author associations that are never judged (OWNER, MEMBER, COLLABORATOR, CONTRIBUTOR, FIRST_TIME_CONTRIBUTOR, NONE).
     default: OWNER,MEMBER
@@ -44,6 +47,9 @@ inputs:
     default: possibly-ai-generated
   dry-run:
     description: Classify and set outputs, but do not react or label.
+    default: "false"
+  fail-on-error:
+    description: Fail the job when adding a reaction or label fails (deleted comment, locked issue, read-only token on fork PRs). By default this only logs a warning.
     default: "false"
 
 outputs:

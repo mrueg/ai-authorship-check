@@ -1,0 +1,18 @@
+{
+  "action": "opened",
+  "issue": {
+    "number": 2,
+    "body": "When I run the build in watch mode on Linux, the process exits after the first rebuild instead of watching. It worked fine on 2.3.0 and broke after upgrading to 2.4.1. I tried raising the inotify limit, clearing the cache and reinstalling, but nothing changed. The same project works on macOS with the same version. Happy to test a fix or provide more logs if that helps narrow it down. When I run the build in watch mode on Linux, the process exits after the first rebuild instead of watching. It worked fine on 2.3.0 and broke after upgrading to 2.4.1. I tried raising the inotify limit, clearing the cache and reinstalling, but nothing changed. The same project works on macOS with the same version. Happy to test a fix or provide more logs if that helps narrow it down. When I run the build in watch mode on Linux, the process exits after the first rebuild instead of watching. It worked fine on 2.3.0 and broke after upgrading to 2.4.1. I tried raising the inotify limit, clearing the cache and reinstalling, but nothing changed. The same project works on macOS with the same version. Happy to test a fix or provide more logs if that helps narrow it down. ",
+    "user": {
+      "login": "octocat",
+      "type": "User"
+    },
+    "author_association": "NONE"
+  },
+  "repository": {
+    "name": "repo",
+    "owner": {
+      "login": "owner"
+    }
+  }
+}

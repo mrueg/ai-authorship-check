@@ -4,7 +4,7 @@
  */
 export function preprocess(body: string): string {
   // HTML comments: issue/PR template instructions, hidden bot metadata.
-  let text = normalizeNewlines(body).replace(/<!--[\s\S]*?(?:-->|$)/g, "");
+  let text = stripInvisible(normalizeNewlines(body)).replace(/<!--[\s\S]*?(?:-->|$)/g, "");
 
   text = stripFencedCode(text);
 
@@ -29,6 +29,17 @@ export function preprocess(body: string): string {
   text = text.replace(/[ \t]+/g, " ");
   text = text.replace(/\n{3,}/g, "\n\n");
   return text.trim();
+}
+
+/**
+ * Zero-width characters, soft hyphens and bidi controls: invisible when rendered,
+ * but they change tokens, so they are a cheap way to shift the model's score or
+ * break up a signature ("Gene\u200Brated with …").
+ */
+const INVISIBLE = /[\u00AD\u180E\u200B-\u200F\u202A-\u202E\u2060-\u2064\u2066-\u2069\uFEFF]/g;
+
+export function stripInvisible(text: string): string {
+  return text.replace(INVISIBLE, "");
 }
 
 export function normalizeNewlines(text: string): string {

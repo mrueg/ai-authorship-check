@@ -2,20 +2,12 @@ import * as core from "@actions/core";
 import * as github from "@actions/github";
 import { Classifier } from "./classifier.ts";
 import { readConfig, type Config } from "./config.ts";
-import { skipReason, verdictFor, type Reaction, type Verdict } from "./decide.ts";
+import { skipReason, verdictFor } from "./decide.ts";
 import { extractTarget, type Payload, type Target } from "./event.ts";
 import { preprocess } from "./preprocess.ts";
-import { addReaction, clearReactions, syncLabel } from "./react.ts";
+import { respond, type Result } from "./respond.ts";
 import { findSignature } from "./signatures.ts";
 
-/** Identity behind the default GITHUB_TOKEN; used to find our own old reactions. */
-const ACTIONS_BOT = "github-actions[bot]";
-
-interface Result {
-  verdict: Verdict | "skipped";
-  reason: string;
-  pAi?: number;
-}
 
 async function run(): Promise<void> {
   const cfg = readConfig();
@@ -36,23 +28,17 @@ async function run(): Promise<void> {
     return;
   }
 
-  const octokit = github.getOctokit(cfg.token);
-  if (target.edited) {
-    const ours = new Set(Object.values(cfg.reactions).filter((r): r is Reaction => r !== undefined));
-    const removed = await clearReactions(octokit, repo, target, ACTIONS_BOT, ours);
-    if (removed) core.info(`Removed ${removed} earlier reaction(s)`);
+  try {
+    await respond(github.getOctokit(cfg.token), repo, target, result, cfg);
+  } catch (err) {
+    // Deleted comments, locked issues and read-only fork tokens are routine on busy repos.
+    if (cfg.failOnError) throw err;
+    core.warning(`Could not react or label (set fail-on-error to fail the job instead): ${message(err)}`);
   }
-  if (result.verdict === "skipped") return;
+}
 
-  const reaction = cfg.reactions[result.verdict];
-  if (reaction) {
-    await addReaction(octokit, repo, target, reaction);
-    core.info(`Reacted ${reaction}`);
-  }
-
-  if (cfg.addLabel) {
-    await syncLabel(octokit, repo, target, cfg.labelName, result.verdict === "ai");
-  }
+function message(err: unknown): string {
+  return err instanceof Error ? err.message : String(err);
 }
 
 async function judge(target: Target, cfg: Config): Promise<Result> {
@@ -74,8 +60,9 @@ async function judge(target: Target, cfg: Config): Promise<Result> {
   core.info(`Model loaded in ${Date.now() - started} ms`);
   try {
     const t0 = Date.now();
-    const pAi = await classifier.classify(text);
-    core.info(`Classified ${text.length} characters in ${Date.now() - t0} ms: P(AI) = ${pAi.toFixed(4)}`);
+    const { pAi, tokens, chunks, truncated } = await classifier.classify(text, cfg.longText);
+    const detail = [`${tokens} tokens`, chunks > 1 && `${chunks} chunks`, truncated && "truncated"].filter(Boolean).join(", ");
+    core.info(`Classified ${text.length} characters (${detail}) in ${Date.now() - t0} ms: P(AI) = ${pAi.toFixed(4)}`);
     const verdict = verdictFor(pAi, cfg.humanThreshold, cfg.aiThreshold);
     const bands = `human < ${cfg.humanThreshold} ≤ undecided < ${cfg.aiThreshold} ≤ ai`;
     return { verdict, reason: `model P(AI) = ${pAi.toFixed(3)} (${bands})`, pAi };
@@ -102,5 +89,5 @@ function finish(result: Result): void {
 }
 
 run().catch((err: unknown) => {
-  core.setFailed(err instanceof Error ? err.message : String(err));
+  core.setFailed(message(err));
 });

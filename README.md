@@ -72,9 +72,15 @@ event → skip? → AI signature? → clean up text → Vanguard → P(AI) → �
 3. **Cleanup**: removes what the author didn't write or the model wasn't trained on: HTML
    comments (template instructions), fenced code, `<details>` logs, quoted replies, empty
    issue-form fields, URLs and images. Texts shorter than `min-length` afterwards are skipped.
-4. **Model**: P(AI) = sigmoid(logit) from Vanguard, reading up to `max-tokens` tokens.
+   Invisible characters (zero-width, soft hyphens, bidi controls) are removed before both the
+   signature check and the model, so they can't hide a signature or nudge the score.
+4. **Model**: P(AI) = sigmoid(logit) from Vanguard, reading up to `max-tokens` tokens. With
+   `long-text: chunks`, longer texts are split into up to 4 chunks of `max-tokens` and P(AI)
+   is their length-weighted mean.
 5. **React**: ❤️ below `human-threshold`, 🚀 at or above `ai-threshold`, 👀 in between. On
-   edits the action first removes its own earlier reaction, so there is always one verdict.
+   edits the action adds the new reaction, then removes its own other verdict reactions, so
+   there is always exactly one. If an edit is skipped (say, cut below `min-length`), the old
+   reaction and label are removed.
 
 ## Inputs
 
@@ -86,13 +92,15 @@ event → skip? → AI signature? → clean up text → Vanguard → P(AI) → �
 | `undecided-reaction` | `eyes` | 〃 |
 | `ai-reaction` | `rocket` | 〃 |
 | `min-length` | `40` | Skip shorter texts (after cleanup). |
-| `max-tokens` | `2048` | Truncate longer texts. |
+| `max-tokens` | `2048` | Tokens per model input. |
+| `long-text` | `truncate` | `truncate` reads the first `max-tokens`; `chunks` scores up to 4 chunks and averages them. |
 | `skip-associations` | `OWNER,MEMBER` | Never judge these authors. |
 | `signature-check` | `true` | 🚀 on explicit AI-tool signatures, without running the model. |
 | `add-label` | `false` | Also label issues/PRs judged AI (removed if an edit flips it). |
 | `label-name` | `possibly-ai-generated` | |
 | `dry-run` | `false` | Classify and report, but don't react or label. |
-| `github-token` | `${{ github.token }}` | |
+| `fail-on-error` | `false` | Fail the job if a reaction or label can't be added. By default it's a warning: deleted comments, locked issues and read-only fork tokens are routine. |
+| `github-token` | `${{ github.token }}` | Any token works; reactions are cleaned up under whichever account it belongs to. |
 
 Outputs: `verdict` (`human` / `undecided` / `ai` / `skipped`), `p-ai`, `reason`. Each run also writes a
 job summary.
@@ -112,6 +120,12 @@ should be tuned on real data from your repos (see *Evaluating* below).
   of runner time per event. Filter events with a job-level `if:` to avoid paying for skips.
 - **Not covered**: PR review summaries (`pull_request_review`), commit messages and
   Discussions.
+- **Long texts**: by default only the first `max-tokens` tokens are read. `long-text: chunks`
+  reads up to four times as much at up to four times the inference time; compare both with
+  the Eval workflow's by-length table before switching.
+- **GitHub App tokens**: when an edit gets no new reaction (skipped, or that verdict's
+  reaction is `none`), old reactions are looked up under `github-actions[bot]` or the token's
+  user, which misses an app's own reactions.
 
 ## Development
 
@@ -151,7 +165,8 @@ the results to the job summary.
 
 Prints AUROC, then for each `ai-threshold` the 🚀 precision/recall and the share of humans who
 would get 🚀, and for each `human-threshold` the ❤️ precision/recall and the share of AI texts
-that would get ❤️.
+that would get ❤️, followed by verdict shares per slice (origin, kind, length in tokens, …).
+Pass `--long-text chunks` (or pick it in the workflow) to score long texts in chunks.
 
 ### Releasing
 
