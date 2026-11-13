@@ -4,8 +4,8 @@
  *
  *   node corpus/build.ts
  */
-import { existsSync, readFileSync, writeFileSync } from "node:fs";
-import type { CorpusItem } from "./lib.ts";
+import { existsSync, writeFileSync } from "node:fs";
+import { readJsonl, type CorpusItem } from "./lib.ts";
 
 const DATA = new URL("./data/", import.meta.url).pathname;
 const PARTS = ["human.jsonl", "wild-ai.jsonl", "generated.jsonl"];
@@ -16,7 +16,7 @@ for (const part of PARTS) {
     console.error(`skipping missing ${part}`);
     continue;
   }
-  items.push(...readFileSync(DATA + part, "utf8").split("\n").filter(Boolean).map((l) => JSON.parse(l) as CorpusItem));
+  items.push(...readJsonl<CorpusItem>(DATA + part));
 }
 
 const ids = new Set<string>();

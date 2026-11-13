@@ -16,21 +16,20 @@
  */
 import { execFile } from "node:child_process";
 import { createHash } from "node:crypto";
-import { appendFileSync, existsSync, mkdtempSync, readFileSync } from "node:fs";
+import { appendFileSync, existsSync, mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import { promisify } from "node:util";
-import { parseArgs } from "node:util";
-import { preprocess } from "../src/preprocess.ts";
+import { parseArgs, promisify } from "node:util";
+import { normalizeNewlines, preprocess } from "../src/preprocess.ts";
 import { findSignature } from "../src/signatures.ts";
-import { mulberry32, shuffle, type CorpusItem } from "./lib.ts";
+import { mulberry32, readJsonl, shuffle, type CorpusItem, type Kind } from "./lib.ts";
 
 const run = promisify(execFile);
 const DATA = new URL("./data/", import.meta.url).pathname;
 export const STYLES = ["scratch", "casual", "rewrite"] as const;
 type Style = (typeof STYLES)[number];
 
-const NOUN: Record<CorpusItem["kind"], string> = {
+const NOUN: Record<Kind, string> = {
   issue: "issue description",
   pull_request: "pull request description",
   issue_comment: "comment",
@@ -65,7 +64,7 @@ export function buildPrompt(item: CorpusItem, style: Style): string {
 
 /** Strips wrappers models add around the answer. Returns undefined for unusable output. */
 export function cleanOutput(raw: string): string | undefined {
-  let text = raw.replace(/\r\n?/g, "\n").trim();
+  let text = normalizeNewlines(raw).trim();
   const fenced = text.match(/^```[a-z]*\n([\s\S]*?)\n```$/i);
   if (fenced) text = fenced[1]!.trim();
   text = text.replace(/^(?:here(?:'s| is)|sure|certainly)[^\n]{0,80}:\s*\n+/i, "");
@@ -102,7 +101,7 @@ async function main(): Promise<void> {
   const models = (values.models ?? "").split(",").map((m) => m.trim()).filter(Boolean);
   if (!models.length) throw new Error("--models is required, e.g. --models claude-haiku-5.5,gpt-6-luna");
 
-  const human: CorpusItem[] = readFileSync(`${DATA}human.jsonl`, "utf8").split("\n").filter(Boolean).map((l) => JSON.parse(l));
+  const human = readJsonl<CorpusItem>(`${DATA}human.jsonl`);
   // Same item order every run; interleave kinds so a partial run is still balanced.
   shuffle(human, mulberry32(7));
   const plan = human.slice(0, Number(values.limit)).map((item, i) => ({
@@ -112,9 +111,7 @@ async function main(): Promise<void> {
   }));
 
   const out = `${DATA}generated.jsonl`;
-  const done = new Set(
-    existsSync(out) ? readFileSync(out, "utf8").split("\n").filter(Boolean).map((l) => JSON.parse(l).pair_of) : [],
-  );
+  const done = new Set(existsSync(out) ? readJsonl<CorpusItem>(out).map((g) => g.pair_of) : []);
   const todo = plan.filter((p) => !done.has(p.item.id));
   process.stderr.write(`${plan.length} planned, ${done.size} already done, ${todo.length} to generate\n`);
 

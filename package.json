@@ -2,7 +2,7 @@
   "name": "ai-authorship-check",
   "version": "0.1.0",
   "private": true,
-  "description": "GitHub Action that reacts to issues, PRs and comments with 👍 (human) or 👎 (likely AI-generated) using a local ModernBERT classifier",
+  "description": "GitHub Action that reacts to issues, PRs and comments with ❤️ (likely human), 👀 (undecided) or 🚀 (likely AI-generated) using a local ModernBERT classifier",
   "license": "MIT",
   "type": "module",
   "engines": {
