@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { preprocess } from "../src/preprocess.js";
+import { preprocess } from "../src/preprocess.ts";
 
 describe("preprocess", () => {
   it("removes HTML comments from templates", () => {

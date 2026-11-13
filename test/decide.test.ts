@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { skipReason, verdictFor } from "../src/decide.js";
-import { sigmoid } from "../src/classifier.js";
-import { parseReaction } from "../src/config.js";
-import { auroc, humanMetricsAt, metricsAt } from "../src/eval.js";
-import type { Target } from "../src/event.js";
+import { skipReason, verdictFor } from "../src/decide.ts";
+import { sigmoid } from "../src/classifier.ts";
+import { parseReaction } from "../src/config.ts";
+import { auroc, humanMetricsAt, metricsAt } from "../src/eval.ts";
+import type { Target } from "../src/event.ts";
 
 const base: Target = {
   kind: "issue", body: "hello there", author: "octocat", authorIsBot: false,

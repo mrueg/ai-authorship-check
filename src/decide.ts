@@ -1,5 +1,5 @@
-import type { Config } from "./config.js";
-import type { Target } from "./event.js";
+import type { Config } from "./config.ts";
+import type { Target } from "./event.ts";
 
 export type Verdict = "human" | "undecided" | "ai";
 

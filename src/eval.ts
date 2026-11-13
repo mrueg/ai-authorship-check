@@ -13,8 +13,8 @@
  */
 import { readFileSync, writeFileSync } from "node:fs";
 import { parseArgs } from "node:util";
-import { Classifier } from "./classifier.js";
-import { preprocess } from "./preprocess.js";
+import { Classifier } from "./classifier.ts";
+import { preprocess } from "./preprocess.ts";
 
 interface Row {
   id?: string;

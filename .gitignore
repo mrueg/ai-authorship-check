@@ -5,3 +5,4 @@ model/out/
 .venv/
 corpus/.cache/
 corpus/data/
+.vitest/

@@ -1,6 +1,6 @@
 import type { getOctokit } from "@actions/github";
-import type { Reaction } from "./decide.js";
-import type { Target } from "./event.js";
+import type { Reaction } from "./decide.ts";
+import type { Target } from "./event.ts";
 
 type Octokit = ReturnType<typeof getOctokit>;
 

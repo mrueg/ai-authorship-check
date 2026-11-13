@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { extractTarget } from "../src/event.js";
+import { extractTarget } from "../src/event.ts";
 
 const user = { login: "octocat", type: "User" };
 

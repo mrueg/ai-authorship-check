@@ -1,5 +1,5 @@
 import * as core from "@actions/core";
-import { REACTIONS, type Reaction, type Verdict } from "./decide.js";
+import { REACTIONS, type Reaction, type Verdict } from "./decide.ts";
 
 export interface Config {
   token: string;
