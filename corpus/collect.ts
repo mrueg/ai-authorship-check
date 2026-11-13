@@ -15,12 +15,11 @@
  * Hourly archives are cached in corpus/.cache/.
  */
 import { createHash } from "node:crypto";
-import { createReadStream, existsSync, mkdirSync, renameSync } from "node:fs";
+import { createReadStream, createWriteStream, existsSync, mkdirSync, renameSync } from "node:fs";
 import { Readable } from "node:stream";
 import { pipeline } from "node:stream/promises";
 import { createGunzip } from "node:zlib";
-import { createWriteStream } from "node:fs";
-import { preprocess } from "../src/preprocess.ts";
+import { normalizeNewlines, preprocess } from "../src/preprocess.ts";
 import { findSignature } from "../src/signatures.ts";
 import { isEnglish, splitFor, mulberry32, shuffle, type CorpusItem, type Kind } from "./lib.ts";
 
@@ -135,7 +134,7 @@ function toCandidate(e: GhEvent): Candidate | undefined {
 
 /** Removes the disclosure footer and anything after it. */
 export function stripSignature(body: string): string {
-  const lines = body.replace(/\r\n?/g, "\n").split("\n");
+  const lines = normalizeNewlines(body).split("\n");
   const at = lines.findIndex((l) => findSignature(l) !== undefined);
   if (at < 0) return body;
   let end = at;

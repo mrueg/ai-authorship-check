@@ -1,6 +1,9 @@
 import { createHash } from "node:crypto";
+import { readFileSync } from "node:fs";
+import type { TargetKind } from "../src/event.ts";
 
-export type Kind = "issue" | "pull_request" | "issue_comment" | "review_comment";
+/** The same four kinds of text the action judges. */
+export type Kind = TargetKind;
 
 export interface CorpusItem {
   id: string;
@@ -23,6 +26,11 @@ export interface CorpusItem {
   generator?: string;
   style?: string;
   pair_of?: string;
+}
+
+/** Parses a JSON-lines file, skipping blank lines. */
+export function readJsonl<T>(file: string): T[] {
+  return readFileSync(file, "utf8").split("\n").filter(Boolean).map((l) => JSON.parse(l) as T);
 }
 
 /** Split by repository, so near-duplicate text from one repo never spans dev and test. */
