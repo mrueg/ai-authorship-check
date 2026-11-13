@@ -46,14 +46,17 @@ const UNAMBIGUOUS_TOOLS = [
   "roo code",
 ].join("|");
 
-/** Commit-author addresses that only AI tools use. */
-const LOCAL = String.raw`[\w.+[\]-]{0,64}`; // local-part characters, incl. "123+name[bot]"; bounded so it stays linear
+/**
+ * Commit-author addresses that only AI tools use. GitHub noreply addresses are
+ * matched exactly (optionally with the numeric "123+" prefix), so a person whose
+ * login merely contains "copilot" doesn't match.
+ */
+const NOREPLY = String.raw`(?:\d+\+)?`;
 const AI_ADDRESSES = [
   String.raw`noreply@anthropic\.com`,
-  String.raw`${LOCAL}copilot${LOCAL}@users\.noreply\.github\.com`,
   String.raw`cursoragent@cursor\.com`,
-  String.raw`${LOCAL}devin-ai-integration${LOCAL}@users\.noreply\.github\.com`,
-  String.raw`${LOCAL}google-labs-jules${LOCAL}@users\.noreply\.github\.com`,
+  ...["copilot", String.raw`copilot-swe-agent\[bot\]`, String.raw`devin-ai-integration\[bot\]`, String.raw`google-labs-jules\[bot\]`]
+    .map((login) => String.raw`${NOREPLY}${login}@users\.noreply\.github\.com`),
 ].join("|");
 
 export interface SignaturePattern {
@@ -84,20 +87,28 @@ export const SIGNATURES: SignaturePattern[] = [
     ),
   },
   {
-    // Commit-style trailer pasted into a PR body: "Co-Authored-By: GitHub Copilot".
+    // Commit-style trailer pasted into a PR body: "Co-Authored-By: GitHub Copilot". The tool name
+    // must be followed by a space, "<" or the end ("codex-team" is not Codex). The trailing
+    // whitespace sits inside the optional group so it can't overlap [^<\n]* and backtrack.
     name: "co-authored-by AI trailer",
-    pattern: new RegExp(String.raw`^[ \t]*co-authored-by:[ \t]*(?:${UNAMBIGUOUS_TOOLS})\b[^<\n]*(?:<[^>\n]*>)?[ \t]*$`, "im"),
+    pattern: new RegExp(
+      String.raw`^[ \t]*co-authored-by:[ \t]*(?:${UNAMBIGUOUS_TOOLS})(?=[ \t<]|$)[^<\n]*(?:<[^>\n]*>[ \t]*)?$`,
+      "im",
+    ),
   },
   {
-    // "Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
+    // "Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>", as a line of its own: prose that
+    // mentions such a trailer ("please drop the Co-authored-by: … line") doesn't count.
     name: "co-authored-by AI noreply address",
-    pattern: new RegExp(String.raw`co-authored-by:[^\n<]*<(?:${AI_ADDRESSES})>`, "i"),
+    pattern: new RegExp(String.raw`^[ \t]*co-authored-by:[^\n<]*<(?:${AI_ADDRESSES})>[ \t]*$`, "im"),
   },
   {
     // Chat-assistant boilerplate that only appears when a reply is pasted verbatim. Must start a
-    // line or sentence, so quoting it ('it replied "As an AI language model …"') does not count.
+    // line or sentence, so quoting it ('it replied "As an AI language model …"') does not count,
+    // and user stories ("As an AI assistant, I want to …") are excluded.
     name: "assistant boilerplate",
-    pattern: /(?:^|[.!?]\s+)as an ai (?:language model|assistant)\b/im,
+    pattern:
+      /(?:^|[.!?]\s+)as an ai (?:language model\b|assistant\b(?!,?[ \t]+i[ \t]+(?:want|need|would like|wish|expect|should)\b))/im,
   },
 ];
 

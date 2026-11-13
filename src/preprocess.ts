@@ -8,8 +8,8 @@ export function preprocess(body: string): string {
 
   text = stripFencedCode(text);
 
-  // <details> blocks are almost always pasted logs or stack traces.
-  text = text.replace(/<details>[\s\S]*?(?:<\/details>|$)/gi, "");
+  // <details> blocks (also <details open>) are almost always pasted logs or stack traces.
+  text = text.replace(/<details\b[^>]*>[\s\S]*?(?:<\/details>|$)/gi, "");
 
   text = stripQuotes(text)
     .split("\n")
@@ -46,9 +46,31 @@ export function normalizeNewlines(text: string): string {
   return text.replace(/\r\n?/g, "\n");
 }
 
-/** Removes fenced code blocks (``` or ~~~), including unterminated ones. */
+/**
+ * Removes fenced code blocks, including unterminated ones. Follows CommonMark: a
+ * fence is 3+ backticks or tildes, and only a fence of the same character, at
+ * least as long, with nothing after it closes the block. So ```` can wrap ```,
+ * and a ```python line inside a block is content, not a closing fence.
+ */
 export function stripFencedCode(text: string): string {
-  return text.replace(/^ {0,3}(```|~~~)[^\n]*\n[\s\S]*?(?:^ {0,3}\1[^\n]*$|(?![\s\S]))/gm, "");
+  const kept: string[] = [];
+  let open: { char: string; length: number } | undefined;
+  for (const line of text.split("\n")) {
+    if (!open) {
+      const m = /^ {0,3}(`{3,}|~{3,})(.*)$/.exec(line);
+      // A backtick fence's info string can't contain backticks (``` x ``` is inline code).
+      if (m && !(m[1]![0] === "`" && m[2]!.includes("`"))) {
+        open = { char: m[1]![0]!, length: m[1]!.length };
+        kept.push(""); // keep the text before and after as separate paragraphs
+      } else {
+        kept.push(line);
+      }
+    } else {
+      const m = /^ {0,3}(`{3,}|~{3,})[ \t]*$/.exec(line);
+      if (m && m[1]![0] === open.char && m[1]!.length >= open.length) open = undefined;
+    }
+  }
+  return kept.join("\n");
 }
 
 /** Removes quoted lines ("> ..."): text the author is replying to, not their own. */

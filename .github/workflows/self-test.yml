@@ -14,12 +14,16 @@ permissions:
   contents: read
   packages: read # pull the action image while the package is private
 
+# A newer event for the same text cancels the older run. An edit that doesn't touch the body
+# (title, labels, base branch) gets its own group, so it can't cancel the run still judging
+# the text; the job's `if` then skips it without pulling the image.
 concurrency:
-  group: ai-authorship-check-${{ github.event.comment.id || github.event.issue.number || github.event.pull_request.number }}
+  group: ai-authorship-check-${{ github.event.action == 'edited' && !github.event.changes.body && format('edit-{0}', github.run_id) || github.event.comment.id || github.event.issue.number || github.event.pull_request.number }}
   cancel-in-progress: true
 
 jobs:
   ai-authorship-check:
+    if: github.event.action != 'edited' || github.event.changes.body
     runs-on: ubuntu-latest
     steps:
       # Checks out main, never the PR's code: pull_request_target and the issue
