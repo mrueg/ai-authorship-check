@@ -11,6 +11,15 @@ updates:
   - package-ecosystem: docker
     directory: /
     schedule: { interval: weekly }
+    cooldown: { default-days: 14 }
+    ignore:
+      # Odd Node majors never become LTS, and even ones only do in October. Move to the
+      # next LTS by hand (Dockerfile, ci.yml, eval.yml together).
+      - dependency-name: node
+        update-types: ["version-update:semver-major"]
+      # The model export is tested against this Python; bump it deliberately.
+      - dependency-name: python
+        update-types: ["version-update:semver-minor", "version-update:semver-major"]
   - package-ecosystem: github-actions
     directory: /
     schedule: { interval: weekly }

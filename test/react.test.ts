@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
-import { addReaction, clearReactions, syncLabel } from "../src/react.js";
-import type { Target } from "../src/event.js";
+import { addReaction, clearReactions, syncLabel } from "../src/react.ts";
+import type { Target } from "../src/event.ts";
 
 const repo = { owner: "o", repo: "r" };
 const issue: Target = {

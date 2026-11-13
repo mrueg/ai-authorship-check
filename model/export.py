@@ -1,5 +1,6 @@
-"""Export a single-logit Hugging Face text classifier to an int8 ONNX model
-laid out for transformers.js, and check it against the PyTorch original.
+"""Export a single-logit Hugging Face text classifier to ONNX, laid out for
+transformers.js, and check it against the PyTorch original. Ships int8 if a
+quantization setting keeps scores within MAX_INT8_DRIFT, otherwise fp32.
 
     python model/export.py --repo ShantanuT01/vanguard-ai-text-detector \
         --revision 823061be63b90f2b42f64ac1e1f82772e872533b --out model/out
@@ -9,7 +10,7 @@ Output:
     <out>/onnx/model_quantized.onnx   (or onnx/model.onnx if no int8 setting is accurate enough)
     <out>/MODEL_INFO.json   (source repo, revision, quantization, sha256, export check results)
 
---tiny swaps the weights for a 2-layer random model with the same tokenizer,
+--tiny swaps the weights for a 3-layer random model with the same tokenizer,
 so the full pipeline can be smoke-tested in a minute without the 1.6 GB download.
 """
 

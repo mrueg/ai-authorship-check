@@ -3,24 +3,18 @@
  * boilerplate) and text the model was not trained on (code, logs, URLs).
  */
 export function preprocess(body: string): string {
-  let text = body.replace(/\r\n?/g, "\n");
-
   // HTML comments: issue/PR template instructions, hidden bot metadata.
-  text = text.replace(/<!--[\s\S]*?(?:-->|$)/g, "");
+  let text = normalizeNewlines(body).replace(/<!--[\s\S]*?(?:-->|$)/g, "");
 
-  // Fenced code blocks (``` or ~~~), including unterminated ones.
-  text = text.replace(/^ {0,3}(```|~~~)[^\n]*\n[\s\S]*?(?:^ {0,3}\1[^\n]*$|(?![\s\S]))/gm, "");
+  text = stripFencedCode(text);
 
   // <details> blocks are almost always pasted logs or stack traces.
   text = text.replace(/<details>[\s\S]*?(?:<\/details>|$)/gi, "");
 
-  const lines = text.split("\n").filter((line) => {
-    const t = line.trim();
-    if (t.startsWith(">")) return false; // quoted reply
-    if (/^_no response_$/i.test(t)) return false; // empty issue-form field
-    return true;
-  });
-  text = lines.join("\n");
+  text = stripQuotes(text)
+    .split("\n")
+    .filter((line) => !/^_no response_$/i.test(line.trim())) // empty issue-form field
+    .join("\n");
 
   // Markdown images and links: keep link text, drop URLs.
   text = text.replace(/!\[[^\]]*\]\([^)]*\)/g, "");
@@ -35,4 +29,21 @@ export function preprocess(body: string): string {
   text = text.replace(/[ \t]+/g, " ");
   text = text.replace(/\n{3,}/g, "\n\n");
   return text.trim();
+}
+
+export function normalizeNewlines(text: string): string {
+  return text.replace(/\r\n?/g, "\n");
+}
+
+/** Removes fenced code blocks (``` or ~~~), including unterminated ones. */
+export function stripFencedCode(text: string): string {
+  return text.replace(/^ {0,3}(```|~~~)[^\n]*\n[\s\S]*?(?:^ {0,3}\1[^\n]*$|(?![\s\S]))/gm, "");
+}
+
+/** Removes quoted lines ("> ..."): text the author is replying to, not their own. */
+export function stripQuotes(text: string): string {
+  return text
+    .split("\n")
+    .filter((line) => !line.trim().startsWith(">"))
+    .join("\n");
 }

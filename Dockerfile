@@ -1,4 +1,5 @@
-# AI Authorship Check action image: Node runtime + int8 ONNX export of the classifier.
+# AI Authorship Check action image: Node runtime + ONNX export of the classifier
+# (int8 if quantization keeps scores close to PyTorch, otherwise fp32; see model/export.py).
 #
 #   docker build -t ai-authorship-check .                          # real model (needs ~8 GB RAM to export)
 #   docker build -t ai-authorship-check --build-arg MODEL_TINY=true .   # random 3-layer model, for smoke tests
@@ -7,7 +8,7 @@ ARG MODEL_REPO=ShantanuT01/vanguard-ai-text-detector
 ARG MODEL_REVISION=823061be63b90f2b42f64ac1e1f82772e872533b
 ARG MODEL_TINY=false
 
-# --- 1. Export the model to int8 ONNX and verify it against PyTorch ---------
+# --- 1. Export the model to ONNX and verify it against PyTorch --------------
 FROM python:3.12-slim-bookworm AS export
 WORKDIR /work
 COPY model/requirements.txt .
@@ -20,7 +21,7 @@ RUN python export.py --repo "$MODEL_REPO" --revision "$MODEL_REVISION" --out /mo
       $( [ "$MODEL_TINY" = "true" ] && echo --tiny )
 
 # --- 2. Build the action ----------------------------------------------------
-FROM node:25-bookworm-slim AS build
+FROM node:26-bookworm-slim AS build
 WORKDIR /app
 COPY package.json package-lock.json ./
 # onnxruntime-node's install script only fetches optional CUDA binaries.
@@ -38,7 +39,7 @@ RUN npm run build \
  && rm -f node_modules/onnxruntime-node/bin/napi-v6/linux/*/libonnxruntime_providers_*
 
 # --- 3. Runtime ---------------------------------------------------------------
-FROM node:25-bookworm-slim
+FROM node:26-bookworm-slim
 ENV NODE_ENV=production \
     AI_AUTHORSHIP_CHECK_MODEL_PATH=/model
 COPY --from=build /app/package.json /app/package.json

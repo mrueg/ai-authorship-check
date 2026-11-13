@@ -1,5 +1,7 @@
-# The README's usage example, run on this repository with its own action (`./`),
-# so every issue, pull request and comment here is a live test of main.
+# The README's usage example, run on this repository with its own action (`./`).
+# `./` takes action.yml (inputs, defaults) from main, but the container is the
+# released image that action.yml's `runs.image` pins, so this tests the current
+# release, not main's code. CI's smoke job covers main's code.
 name: AI Authorship Check
 on:
   issues:              { types: [opened, edited] }

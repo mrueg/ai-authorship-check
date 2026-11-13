@@ -1,12 +1,12 @@
 import * as core from "@actions/core";
 import * as github from "@actions/github";
-import { Classifier } from "./classifier.js";
-import { readConfig } from "./config.js";
-import { skipReason, verdictFor, type Reaction, type Verdict } from "./decide.js";
-import { extractTarget } from "./event.js";
-import { preprocess } from "./preprocess.js";
-import { addReaction, clearReactions, syncLabel } from "./react.js";
-import { findSignature } from "./signatures.js";
+import { Classifier } from "./classifier.ts";
+import { readConfig } from "./config.ts";
+import { skipReason, verdictFor, type Reaction, type Verdict } from "./decide.ts";
+import { extractTarget } from "./event.ts";
+import { preprocess } from "./preprocess.ts";
+import { addReaction, clearReactions, syncLabel } from "./react.ts";
+import { findSignature } from "./signatures.ts";
 
 /** Identity behind the default GITHUB_TOKEN; used to find our own old reactions. */
 const ACTIONS_BOT = "github-actions[bot]";
