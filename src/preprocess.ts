@@ -1,6 +1,6 @@
 /**
  * Removes text the author did not write themselves (quotes, template
- * boilerplate) and text the model was not trained on (code, logs, URLs).
+ * boilerplate) and text the model was not trained on (code, logs, stack traces, URLs).
  */
 export function preprocess(body: string): string {
   // HTML comments: issue/PR template instructions, hidden bot metadata.
@@ -13,7 +13,7 @@ export function preprocess(body: string): string {
 
   text = stripQuotes(text)
     .split("\n")
-    .filter((line) => !/^_no response_$/i.test(line.trim())) // empty issue-form field
+    .filter((line) => !isBoilerplate(line.trim()))
     .join("\n");
 
   // Markdown images and links: keep link text, drop URLs.
@@ -29,6 +29,45 @@ export function preprocess(body: string): string {
   text = text.replace(/[ \t]+/g, " ");
   text = text.replace(/\n{3,}/g, "\n\n");
   return text.trim();
+}
+
+/**
+ * Lines the author didn't write as prose: section titles and leftover placeholders of
+ * issue/PR templates, checklists, and pasted stack traces or log lines. Unfilled templates
+ * were the main source of human texts scored as AI in the eval.
+ */
+const BOILERPLATE: RegExp[] = [
+  /^_no response_$/i, // empty issue-form field
+  // Section titles: "### Steps to reproduce", "**Expected behavior**", "__Version:__".
+  /^#{1,6}(?:\s|$)/,
+  /^(?:\*\*|__)[^*_]{1,80}(?:\*\*|__):?$/,
+  // Task lists: "- [ ] I have read the contributing guide".
+  /^[-*+]\s+\[[ xX]\]/,
+  // Placeholders of GitHub's default bug and feature templates.
+  /^a clear and concise description of\b/i,
+  /^steps to reproduce the behaviou?r:?$/i,
+  /^if applicable, add (?:screenshots|the error stacktrace) to help explain your problem\.?$/i,
+  /^add any other context (?:about the problem|or screenshots about the feature request) here\b/i,
+  /^\d+\.\s+(?:go to|click on|scroll down to)\s+'\.+'$/i,
+  /^\d+\.\s+see error$/i,
+  /\[e\.g\.[^\]]*\]/i, // "- OS: [e.g. iOS]"
+  // Stack frames (JavaScript, Java, Python, Go, Rust) and log lines.
+  /^traceback \(most recent call last\):$/i,
+  /^file ".+", line \d+/i,
+  /^caused by:\s/i,
+  /^goroutine \d+ \[/,
+  /^thread '.+' panicked at\b/,
+  /^\[?\d{4}-\d\d-\d\d[T ]\d\d:\d\d/, // timestamped log line
+  /^\[?(?:TRACE|DEBUG|INFO|WARN|WARNING|ERROR|FATAL)\]?(?::|\s)/,
+];
+
+/** "at foo (file.js:12:3)", "at com.x.Y.z(Y.java:42)". Two cheap tests instead of one backtracking regex. */
+function isStackFrame(line: string): boolean {
+  return /^at\s+\S/.test(line) && /:\d+(?::\d+)?\)?$/.test(line);
+}
+
+function isBoilerplate(line: string): boolean {
+  return isStackFrame(line) || BOILERPLATE.some((re) => re.test(line));
 }
 
 /**
