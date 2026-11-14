@@ -25,7 +25,9 @@ import { isEnglish, splitFor, mulberry32, shuffle, type CorpusItem, type Kind } 
 
 const CACHE = new URL("./.cache/", import.meta.url).pathname;
 const MIN_CHARS = 40;
-const MAX_CHARS = 4000;
+// Long enough to keep texts over the default 2048-token window, so the eval can compare
+// long-text: truncate with chunks. GitHub caps bodies at 65536 characters.
+const MAX_CHARS = 20_000;
 const PER_REPO = 2;
 
 /** Spread over years, months, weekdays and both EU and US working hours. */

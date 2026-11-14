@@ -7,7 +7,7 @@ thinks they were written:
 |---|---|---|
 | ❤️ | More likely written by a human | P(AI) < `human-threshold` (0.3) |
 | 👀 | Undecided | in between |
-| 🚀 | More likely AI-generated | P(AI) ≥ `ai-threshold` (0.8) |
+| 🚀 | More likely AI-generated | P(AI) ≥ `ai-threshold` (0.95) |
 
 The reactions are deliberately friendly: detection is a guess, and nobody should feel accused
 by a bot. All three can be changed or turned off.
@@ -95,7 +95,7 @@ event → skip? → AI signature? → clean up text → Vanguard → P(AI) → �
 | Input | Default | |
 |---|---|---|
 | `human-threshold` | `0.3` | ❤️ when P(AI) is below this. |
-| `ai-threshold` | `0.8` | 🚀 when P(AI) is at or above this; 👀 in between. Higher = fewer real people flagged. |
+| `ai-threshold` | `0.95` | 🚀 when P(AI) is at or above this; 👀 in between. Higher = fewer real people flagged. |
 | `human-reaction` | `heart` | Any of `+1 -1 laugh confused heart hooray rocket eyes`, or `none`. |
 | `undecided-reaction` | `eyes` | 〃 |
 | `ai-reaction` | `rocket` | 〃 |

@@ -23,7 +23,7 @@ node corpus/build.ts                                         # → corpus/data/c
 
 Collection is deterministic: the same hours, filters and seeded sampling give the same items.
 
-**Filters** (both collected parts): no bot accounts, English only (heuristic), 40–4000
+**Filters** (both collected parts): no bot accounts, English only (heuristic), 40–20,000
 characters after preprocessing, no duplicate texts, at most one item per author and two per
 repository. Human items with any AI signature are dropped.
 

@@ -16,7 +16,7 @@ on:
         default: "0.3"
       ai-threshold:
         description: ai-threshold for the per-slice table
-        default: "0.8"
+        default: "0.95"
       long-text:
         description: How texts longer than 2048 tokens are scored (compare the "by length" table)
         type: choice

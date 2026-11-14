@@ -14,7 +14,7 @@ inputs:
     default: "0.3"
   ai-threshold:
     description: P(AI) at or above this value counts as likely AI. Values between the two thresholds are undecided. Higher means fewer real people flagged as AI.
-    default: "0.8"
+    default: "0.95"
   human-reaction:
     description: Reaction for likely human text. One of +1, -1, laugh, confused, heart, hooray, rocket, eyes, or none.
     default: heart
