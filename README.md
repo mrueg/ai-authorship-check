@@ -78,8 +78,11 @@ event → skip? → AI signature? → clean up text → Vanguard → P(AI) → �
    someone else's AI text doesn't count. A tool name alone never counts: Claude, Devin and
    Jules are also people's names.
 3. **Cleanup**: removes what the author didn't write or the model wasn't trained on: HTML
-   comments (template instructions), fenced code, `<details>` logs, quoted replies, empty
-   issue-form fields, URLs and images. Texts shorter than `min-length` afterwards are skipped.
+   comments (template instructions), fenced code, `<details>` logs, quoted replies, URLs and
+   images, and lines that are template leftovers (section titles, checklists, empty
+   issue-form fields, GitHub's stock placeholders like "A clear and concise description of…")
+   or pasted stack frames and log lines. Texts shorter than `min-length` afterwards are
+   skipped, and so is text that is clearly not English (`non-english`).
    Invisible characters (zero-width, soft hyphens, bidi controls) are removed before both the
    signature check and the model, so they can't hide a signature or nudge the score.
 4. **Model**: P(AI) = sigmoid(logit) from Vanguard, reading up to `max-tokens` tokens. With
@@ -102,6 +105,7 @@ event → skip? → AI signature? → clean up text → Vanguard → P(AI) → �
 | `min-length` | `40` | Skip shorter texts (after cleanup). |
 | `max-tokens` | `2048` | Tokens per model input. |
 | `long-text` | `truncate` | `truncate` reads the first `max-tokens`; `chunks` scores up to 4 chunks and averages them. |
+| `non-english` | `skip` | `skip` text that is clearly not English (mostly non-Latin script, or 20+ words with almost no English function words); `score` judges it anyway. |
 | `skip-associations` | `OWNER,MEMBER` | Never judge these authors. |
 | `signature-check` | `true` | 🚀 on explicit AI-tool signatures, without running the model. |
 | `add-label` | `false` | Also label issues/PRs judged AI (removed if an edit flips it). |
@@ -117,7 +121,8 @@ job summary.
 
 AI-text detection is unreliable, and this action should start conversations, not end them.
 Vanguard was not trained on GitHub text; short comments, non-native English, and AI drafts a
-person edited are all hard cases. The default thresholds give a wide 👀 band on purpose and
+person edited are all hard cases. It was trained on English only, so other languages are
+skipped by default; the check is a heuristic and lets mixed-language text through. The default thresholds give a wide 👀 band on purpose and
 should be tuned on real data from your repos (see *Evaluating* below).
 
 - **Signature matches are trusted.** A text with an AI-tool footer or trailer gets 🚀 whatever

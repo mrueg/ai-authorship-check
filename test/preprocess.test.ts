@@ -40,9 +40,70 @@ describe("preprocess", () => {
   });
 
   it("removes empty issue-form fields", () => {
-    expect(preprocess("### Version\n\n_No response_\n\n### What happened\n\nIt broke")).toBe(
-      "### Version\n\n### What happened\n\nIt broke",
+    expect(preprocess("### Version\n\n_No response_\n\n### What happened\n\nIt broke")).toBe("It broke");
+  });
+
+  it("removes template section titles, checklists and stock placeholders", () => {
+    const unfilled = [
+      "**Describe the bug**",
+      "A clear and concise description of what the bug is.",
+      "",
+      "**To Reproduce**",
+      "Steps to reproduce the behavior:",
+      "1. Go to '...'",
+      "2. Click on '....'",
+      "4. See error",
+      "",
+      "**Desktop (please complete the following information):**",
+      " - OS: [e.g. iOS]",
+      " - Browser [e.g. chrome, safari]",
+      "",
+      "**Screenshots**",
+      "If applicable, add screenshots to help explain your problem.",
+      "",
+      "## Checklist",
+      "- [x] I have read the contributing guide",
+      "* [ ] Tests are included",
+      "",
+      "Add any other context about the problem here.",
+    ].join("\n");
+    expect(preprocess(unfilled)).toBe("");
+    expect(preprocess("### Steps\n1. Open the app\n2. It crashes\n\n**Expected:** no crash")).toBe(
+      "1. Open the app\n2. It crashes\n\n**Expected:** no crash",
     );
+  });
+
+  it("removes stack frames and log lines", () => {
+    const pasted = [
+      "It crashes when I paste a list:",
+      "Uncaught TypeError: Cannot read property 'innerText' of null",
+      "    at _buildList (word_paste.js:494)",
+      "    at Object.clean (word_paste.js:130:12)",
+      "\tat com.example.Foo.bar(Foo.java:42)",
+      "Caused by: java.io.IOException: boom",
+      "Traceback (most recent call last):",
+      '  File "app.py", line 3, in <module>',
+      "goroutine 1 [running]:",
+      "thread 'main' panicked at src/main.rs:2:5:",
+      "2024-01-02T03:04:05Z server started",
+      "[ERROR] connection refused",
+      "WARN: retrying",
+      "Any idea what is going on?",
+    ].join("\n");
+    expect(preprocess(pasted)).toBe(
+      "It crashes when I paste a list:\nUncaught TypeError: Cannot read property 'innerText' of null\nAny idea what is going on?",
+    );
+    // Prose that merely starts like a frame or a level stays.
+    expect(preprocess("at least on Linux it works")).toBe("at least on Linux it works");
+    expect(preprocess("Error handling is missing here.")).toBe("Error handling is missing here.");
+  });
+
+  it("stays fast on long adversarial lines", () => {
+    const t0 = Date.now();
+    preprocess("at x" + " (a:1".repeat(20_000));
+    preprocess("**" + "a".repeat(60_000));
+    preprocess("[e.g." + "]".repeat(60_000));
+    expect(Date.now() - t0).toBeLessThan(500);
   });
 
   it("keeps link text and drops URLs and images", () => {

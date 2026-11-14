@@ -4,6 +4,7 @@ import { Classifier } from "./classifier.ts";
 import { readConfig, type Config } from "./config.ts";
 import { skipReason, verdictFor } from "./decide.ts";
 import { extractTarget, type Payload, type Target } from "./event.ts";
+import { isClearlyNotEnglish } from "./language.ts";
 import { preprocess } from "./preprocess.ts";
 import { respond, type Result } from "./respond.ts";
 import { findSignature } from "./signatures.ts";
@@ -53,6 +54,10 @@ async function judge(target: Target, cfg: Config): Promise<Result> {
   const text = preprocess(target.body);
   if (text.length < cfg.minLength) {
     return { verdict: "skipped", reason: `only ${text.length} characters after cleanup (min-length ${cfg.minLength})` };
+  }
+  if (cfg.skipNonEnglish && isClearlyNotEnglish(text)) {
+    // The model was trained on English; its scores on other languages mean little.
+    return { verdict: "skipped", reason: "text is not English (set non-english: score to judge it anyway)" };
   }
 
   const started = Date.now();

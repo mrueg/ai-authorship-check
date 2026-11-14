@@ -2,6 +2,8 @@ import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import type { TargetKind } from "../src/event.ts";
 
+export { isEnglish } from "../src/language.ts";
+
 /** The same four kinds of text the action judges. */
 export type Kind = TargetKind;
 
@@ -37,21 +39,6 @@ export function readJsonl<T>(file: string): T[] {
 export function splitFor(repo: string): "dev" | "test" {
   const byte = createHash("sha256").update(repo.toLowerCase()).digest()[0]!;
   return byte % 2 === 0 ? "dev" : "test";
-}
-
-const STOPWORDS = new Set(
-  "the and to is it this that in for of with on not but be have can you i we a an are was if or as at so do".split(" "),
-);
-
-/** Cheap English check: mostly Latin letters and enough common English words. */
-export function isEnglish(text: string): boolean {
-  const letters = text.match(/\p{L}/gu) ?? [];
-  if (letters.length < 20) return false;
-  const latin = letters.filter((ch) => /[A-Za-z]/.test(ch)).length;
-  if (latin / letters.length < 0.95) return false;
-  const words = text.toLowerCase().match(/[a-z']+/g) ?? [];
-  const hits = words.filter((w) => STOPWORDS.has(w)).length;
-  return hits >= 3 && hits / words.length >= 0.12;
 }
 
 export function mulberry32(seed: number): () => number {
