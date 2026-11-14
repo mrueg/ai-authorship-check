@@ -33,6 +33,9 @@ inputs:
   long-text:
     description: How to handle texts longer than max-tokens. truncate reads only the beginning; chunks scores up to 4 chunks and averages them (slower on long texts).
     default: truncate
+  non-english:
+    description: What to do with text that is clearly not English, which the model wasn't trained on. skip (no reaction) or score.
+    default: skip
   skip-associations:
     description: Comma-separated author associations that are never judged (OWNER, MEMBER, COLLABORATOR, CONTRIBUTOR, FIRST_TIME_CONTRIBUTOR, NONE).
     default: OWNER,MEMBER
