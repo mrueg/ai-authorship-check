@@ -111,7 +111,7 @@ async function main(): Promise<void> {
       model: { type: "string", default: process.env.AI_AUTHORSHIP_CHECK_MODEL_PATH ?? "/model" },
       scores: { type: "string" },
       "human-threshold": { type: "string", default: "0.3" },
-      "ai-threshold": { type: "string", default: "0.8" },
+      "ai-threshold": { type: "string", default: "0.95" },
       "long-text": { type: "string", default: "truncate" },
       "max-tokens": { type: "string", default: "2048" },
     },
@@ -144,7 +144,7 @@ async function main(): Promise<void> {
   console.log(`${rows.length} rows, long-text ${longText}, ${ms.toFixed(0)} ms/row, AUROC ${auroc(scored).toFixed(4)}\n`);
   console.log("ai-threshold (🚀 when P(AI) >= t)");
   console.log("threshold  precision  recall  human-FPR    tp    fp    fn    tn");
-  for (const t of [0.5, 0.6, 0.7, 0.8, 0.85, 0.9, 0.95, 0.99]) {
+  for (const t of [0.5, 0.6, 0.7, 0.8, 0.85, 0.9, 0.95, 0.97, 0.98, 0.99]) {
     const m = metricsAt(scored, t);
     console.log(
       [t.toFixed(2).padStart(9), m.precision.toFixed(3).padStart(10), m.recall.toFixed(3).padStart(7),
