@@ -11,6 +11,8 @@ export interface Config {
   minLength: number;
   maxTokens: number;
   longText: LongText;
+  /** Skip text that is clearly not English instead of scoring it. */
+  skipNonEnglish: boolean;
   skipAssociations: Set<string>;
   signatureCheck: boolean;
   addLabel: boolean;
@@ -39,6 +41,7 @@ export function readConfig(): Config {
     minLength: number("min-length", 0, Infinity),
     maxTokens: number("max-tokens", 16, 8192),
     longText: parseLongText(core.getInput("long-text")),
+    skipNonEnglish: parseNonEnglish(core.getInput("non-english")),
     skipAssociations: new Set(
       core
         .getInput("skip-associations")
@@ -79,4 +82,11 @@ export function parseLongText(raw: string): LongText {
   const value = raw.trim().toLowerCase() || "truncate";
   if (value === "truncate" || value === "chunks") return value;
   throw new Error(`Input "long-text" must be truncate or chunks, got "${raw}"`);
+}
+
+/** "skip" (default) or "score"; returns whether to skip. */
+export function parseNonEnglish(raw: string): boolean {
+  const value = raw.trim().toLowerCase() || "skip";
+  if (value === "skip" || value === "score") return value === "skip";
+  throw new Error(`Input "non-english" must be skip or score, got "${raw}"`);
 }
