@@ -185,10 +185,11 @@ Pass `--long-text chunks` (or pick it in the workflow) to score long texts in ch
 
 1. Run **Publish image** (Actions → Publish image → Run workflow) with version `vX.Y.Z`. It
    builds the image with the real model, smoke-tests it, pushes
-   `ghcr.io/mrueg/ai-authorship-check:vX.Y.Z` and prints the `runs.image` line, pinned by
-   digest, in the job summary. It refuses versions that already exist.
+   `ghcr.io/mrueg/ai-authorship-check:vX.Y.Z` and commits the digest-pinned image to
+   `action.yml` on branch `pin-image-vX.Y.Z`. It refuses versions that already exist.
 2. First release only: make the GHCR package public.
-3. Put that line into `action.yml` in a pull request and merge it.
+3. Open the pull request from the link in the job summary. Its CI runs the self-test against
+   the new image. Merge it.
 4. Tag the merge commit `vX.Y.Z` and push the tag. Tags don't trigger any build, so the
    image `action.yml` pins can't change underneath the release.
 

@@ -1,8 +1,9 @@
 name: Publish image
 
 # Builds the action image with the real model and pushes it to GHCR as
-# ghcr.io/<repo>:<version>. Run it by hand before tagging a release; see
-# "Releasing" in the README. It never overwrites an existing version, and git
+# ghcr.io/<repo>:<version>, then commits the digest-pinned image to action.yml on a
+# branch and links a pull request for it. Run it by hand before tagging a release;
+# see "Releasing" in the README. It never overwrites an existing version, and git
 # tags don't trigger it, so tagging the release can't replace the image that
 # action.yml pins.
 on:
@@ -13,7 +14,7 @@ on:
         required: true
 
 permissions:
-  contents: read
+  contents: write # push the branch that pins the new image in action.yml
   packages: write
 
 jobs:
@@ -66,14 +67,28 @@ jobs:
           digest="$(grep -E "^$VERSION: digest: sha256:[0-9a-f]{64}" push.log | grep -oE 'sha256:[0-9a-f]{64}')"
           if [ -z "$digest" ]; then echo "::error::no digest for $IMAGE:$VERSION in the push output"; exit 1; fi
           echo "digest=$digest" >> "$GITHUB_OUTPUT"
-      - name: Summary
+      # The pull request is opened by a person from the link in the summary: GITHUB_TOKEN
+      # can't open one here, and CI (which runs the new image) doesn't run on PRs it opens.
+      - name: Pin the image in action.yml
         env:
           DIGEST: ${{ steps.push.outputs.digest }}
+          BRANCH: pin-image-${{ inputs.version }}
         run: |
+          line="  image: docker://$IMAGE:$VERSION@$DIGEST"
+          sed -i -E "s|^  image: docker://.*$|$line|" action.yml
+          grep -qxF "$line" action.yml || { echo "::error::could not update runs.image in action.yml"; exit 1; }
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git switch -c "$BRANCH"
+          git commit -qam "Pin the action to image $VERSION" -m "Published by $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+          git push -q origin "$BRANCH"
+          title="Pin the action to image $VERSION"
+          url="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/compare/$GITHUB_REF_NAME...$BRANCH?quick_pull=1&title=$(jq -rn --arg t "$title" '$t|@uri')"
           {
             echo "### Published \`$IMAGE:$VERSION\`"
-            echo "Set \`runs.image\` in \`action.yml\` to:"
             echo '```yaml'
-            echo "  image: docker://$IMAGE:$VERSION@$DIGEST"
+            echo "$line"
             echo '```'
+            echo "Committed to \`action.yml\` on branch \`$BRANCH\`. **[Open the pull request]($url)**, merge it,"
+            echo "then tag the merge commit \`$VERSION\`."
           } >> "$GITHUB_STEP_SUMMARY"
