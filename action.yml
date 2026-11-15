@@ -66,4 +66,4 @@ outputs:
 runs:
   using: docker
   # Pinned by digest: the tag is for humans, the digest is what gets pulled.
-  image: docker://ghcr.io/mrueg/ai-authorship-check:v0.1.0@sha256:537a2205c62b7db763b9364a65ceb2cec05de3dbb5cf510fd8f60106d8bc9470
+  image: docker://ghcr.io/mrueg/ai-authorship-check:v0.2.0@sha256:800ba99ca040e6b0e8e7a4fa5759d7d803fa2470125b096b79f76122b7a574aa
