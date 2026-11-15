@@ -68,7 +68,7 @@ that get 🚀.
 |---|---|---|---|---|---|
 | dev | v0.1.0 | 974 | 0.838 | 12.3% / 63% | 6.6% / 46% |
 | test | v0.1.0 | 967 | 0.829 | 13.7% / 60% | 8.0% / 50% |
-| dev | + template, stack-trace and log lines removed | 975 | 0.872 | 7.6% / 57% | 2.8% / 41% |
+| dev | + template, stack-trace and log lines removed, texts up to 20,000 characters | 1000 | 0.890 | 5.5% / 60% | 2.1% / 46% |
 
 The default `ai-threshold` is 0.95: a wrong 🚀 is the costly mistake, and at 0.8 one human
 text in eight got one. Most of those were unfilled issue and PR templates, which the cleanup
